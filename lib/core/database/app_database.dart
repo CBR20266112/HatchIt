@@ -7,7 +7,7 @@ class AppDatabase {
 
   static final AppDatabase instance = AppDatabase._();
   static const _databaseName = 'hatchit.db';
-  static const _databaseVersion = 2;
+  static const _databaseVersion = 3;
 
   Database? _database;
 
@@ -61,9 +61,16 @@ class AppDatabase {
       CREATE TABLE IF NOT EXISTS app_settings(
         id INTEGER PRIMARY KEY CHECK (id = 1),
         locale_code TEXT NOT NULL,
-        theme_mode TEXT NOT NULL
+        theme_mode TEXT NOT NULL,
+        gemini_api_key TEXT NOT NULL DEFAULT ''
       )
     ''');
+    await _ensureColumnExists(
+      db,
+      table: 'app_settings',
+      column: 'gemini_api_key',
+      definition: "TEXT NOT NULL DEFAULT ''",
+    );
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS schedules(
@@ -94,7 +101,7 @@ class AppDatabase {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS mascot_profile(
         id INTEGER PRIMARY KEY CHECK (id = 1),
-        current_stage TEXT NOT NULL CHECK (current_stage IN ('EGG', 'HATCHED')),
+        current_stage TEXT NOT NULL CHECK (current_stage IN ('EGG', 'HATCHED', 'MASCOT')),
         egg_crack_day INTEGER NOT NULL DEFAULT 0 CHECK (egg_crack_day BETWEEN 0 AND 7),
         species_id INTEGER,
         equipped_tool TEXT,
@@ -103,6 +110,18 @@ class AppDatabase {
         cur_fur_balls INTEGER NOT NULL DEFAULT 0,
         cur_keycaps INTEGER NOT NULL DEFAULT 0,
         fur_growth_gauge INTEGER NOT NULL DEFAULT 0,
+        rhythm_score INTEGER NOT NULL DEFAULT 0,
+        execution_score INTEGER NOT NULL DEFAULT 0,
+        cognition_score INTEGER NOT NULL DEFAULT 0,
+        energy_score INTEGER NOT NULL DEFAULT 0,
+        nature_score INTEGER NOT NULL DEFAULT 0,
+        humanities_score INTEGER NOT NULL DEFAULT 0,
+        art_physical_score INTEGER NOT NULL DEFAULT 0,
+        service_score INTEGER NOT NULL DEFAULT 0,
+        education_score INTEGER NOT NULL DEFAULT 0,
+        bohemian_score INTEGER NOT NULL DEFAULT 0,
+        burst_pace_score INTEGER NOT NULL DEFAULT 0,
+        deep_focus_score INTEGER NOT NULL DEFAULT 0,
         last_pet_time TEXT,
         last_feed_time TEXT
       )
@@ -112,7 +131,81 @@ class AppDatabase {
       'id': 1,
       'locale_code': 'ko',
       'theme_mode': 'system',
+      'gemini_api_key': '',
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
+
+    await _ensureColumnExists(
+      db,
+      table: 'mascot_profile',
+      column: 'rhythm_score',
+      definition: 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _ensureColumnExists(
+      db,
+      table: 'mascot_profile',
+      column: 'execution_score',
+      definition: 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _ensureColumnExists(
+      db,
+      table: 'mascot_profile',
+      column: 'cognition_score',
+      definition: 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _ensureColumnExists(
+      db,
+      table: 'mascot_profile',
+      column: 'energy_score',
+      definition: 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _ensureColumnExists(
+      db,
+      table: 'mascot_profile',
+      column: 'nature_score',
+      definition: 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _ensureColumnExists(
+      db,
+      table: 'mascot_profile',
+      column: 'humanities_score',
+      definition: 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _ensureColumnExists(
+      db,
+      table: 'mascot_profile',
+      column: 'art_physical_score',
+      definition: 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _ensureColumnExists(
+      db,
+      table: 'mascot_profile',
+      column: 'service_score',
+      definition: 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _ensureColumnExists(
+      db,
+      table: 'mascot_profile',
+      column: 'education_score',
+      definition: 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _ensureColumnExists(
+      db,
+      table: 'mascot_profile',
+      column: 'bohemian_score',
+      definition: 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _ensureColumnExists(
+      db,
+      table: 'mascot_profile',
+      column: 'burst_pace_score',
+      definition: 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await _ensureColumnExists(
+      db,
+      table: 'mascot_profile',
+      column: 'deep_focus_score',
+      definition: 'INTEGER NOT NULL DEFAULT 0',
+    );
 
     await db.insert('mascot_profile', {
       'id': 1,
@@ -125,8 +218,34 @@ class AppDatabase {
       'cur_fur_balls': 0,
       'cur_keycaps': 0,
       'fur_growth_gauge': 0,
+      'rhythm_score': 0,
+      'execution_score': 0,
+      'cognition_score': 0,
+      'energy_score': 0,
+      'nature_score': 0,
+      'humanities_score': 0,
+      'art_physical_score': 0,
+      'service_score': 0,
+      'education_score': 0,
+      'bohemian_score': 0,
+      'burst_pace_score': 0,
+      'deep_focus_score': 0,
       'last_pet_time': null,
       'last_feed_time': null,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  Future<void> _ensureColumnExists(
+    Database db, {
+    required String table,
+    required String column,
+    required String definition,
+  }) async {
+    final tableInfo = await db.rawQuery('PRAGMA table_info($table)');
+    final hasColumn = tableInfo.any((row) => row['name'] == column);
+    if (hasColumn) {
+      return;
+    }
+    await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
   }
 }

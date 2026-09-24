@@ -154,6 +154,21 @@ class DailyRecordDao {
     }
   }
 
+  Future<void> clearAll() async {
+    _memoryRecords.clear();
+    _memoryNextId = 1;
+    if (kIsWeb) {
+      return;
+    }
+
+    try {
+      final db = await _appDatabase.database;
+      await db.delete(_table);
+    } catch (_) {
+      return;
+    }
+  }
+
   Future<void> delete(int id) async {
     if (kIsWeb) {
       _memoryRecords.removeWhere((record) => record.id == id);

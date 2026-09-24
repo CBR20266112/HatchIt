@@ -7,8 +7,49 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../mascot/presentation/mascot_controller.dart';
 import '../../schedules/domain/schedule.dart';
 import '../../schedules/presentation/schedule_controller.dart';
+
+enum _MissionMascotState {
+  alarmPanic,
+  wakeDrowsy,
+  missionClear,
+  jump,
+  missionFail,
+  sadTeary,
+}
+
+const _missionMascotBase = 'assets/images/mascots/1';
+
+const Map<_MissionMascotState, List<String>> _missionMascotCandidates = {
+  _MissionMascotState.alarmPanic: ['alarm_panic.png', 'expr_surprised.png'],
+  _MissionMascotState.wakeDrowsy: [
+    'wake_drowsy.png',
+    'wake_drowsy_blanket.png',
+  ],
+  _MissionMascotState.missionClear: ['mission_clear.png', 'groom_sparkle.png'],
+  _MissionMascotState.jump: ['jump.png', 'mission_clear.png'],
+  _MissionMascotState.missionFail: ['mission_fail.png', 'expr_pouty.png'],
+  _MissionMascotState.sadTeary: ['expr_sad_teary.png', 'exp_teary.png'],
+};
+
+Widget _buildMissionMascotAsset(List<String> candidates) {
+  Widget buildAt(int index) {
+    if (index >= candidates.length) {
+      return const Icon(Icons.pets_rounded, size: 72);
+    }
+    return Image.asset(
+      '$_missionMascotBase/${candidates[index]}',
+      width: 100,
+      height: 100,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) => buildAt(index + 1),
+    );
+  }
+
+  return buildAt(0);
+}
 
 class MissionAlarmScreen extends ConsumerStatefulWidget {
   const MissionAlarmScreen({super.key});
@@ -19,6 +60,14 @@ class MissionAlarmScreen extends ConsumerStatefulWidget {
 
 class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
   String _dismissStatus = '최근 미리 끄기 기록 없음';
+  _MissionMascotState _missionMascotState = _MissionMascotState.alarmPanic;
+  Timer? _missionMascotTimer;
+
+  @override
+  void dispose() {
+    _missionMascotTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,12 +76,14 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
 
     return schedulesValue.when(
       data: (schedules) {
-        final shellSchedules = schedules.isEmpty ? _mockSchedules : schedules;
+        final shellSchedules = schedules;
 
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
             Text('기상 & 미션', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 12),
+            _buildMissionMascotCard(),
             const SizedBox(height: 12),
             _buildDismissStatusCard(),
             const SizedBox(height: 12),
@@ -40,12 +91,115 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
             const SizedBox(height: 12),
             Text('알람 카드', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            ...shellSchedules.map(_buildAlarmCard),
+            if (shellSchedules.isEmpty)
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Text('등록된 일정이 없습니다. 시간표 탭에서 먼저 일정을 추가해 주세요.'),
+                ),
+              )
+            else
+              ...shellSchedules.map(_buildAlarmCard),
           ],
         );
       },
       error: (error, stackTrace) => Center(child: Text('알람 로드 실패: $error')),
       loading: () => const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Widget _buildMissionMascotCard() {
+    final labels = {
+      _MissionMascotState.alarmPanic: '알람 울림! 지금 미션 시작!',
+      _MissionMascotState.wakeDrowsy: '스누즈/미리 끄기 상태',
+      _MissionMascotState.missionClear: '미션 통과! 아주 좋아요.',
+      _MissionMascotState.jump: '성공 축하 점프!',
+      _MissionMascotState.missionFail: '미션 실패, 다시 도전!',
+      _MissionMascotState.sadTeary: '아쉬운 표정 모드',
+    };
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            _buildMissionMascotAsset(
+              _missionMascotCandidates[_missionMascotState]!,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                labels[_missionMascotState]!,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _setMissionMascotState(_MissionMascotState next, {Duration? hold}) {
+    _missionMascotTimer?.cancel();
+    setState(() {
+      _missionMascotState = next;
+    });
+    if (hold != null) {
+      _missionMascotTimer = Timer(hold, () {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _missionMascotState = _MissionMascotState.alarmPanic;
+        });
+      });
+    }
+  }
+
+  Future<void> _runMissionResultSequence(bool success) async {
+    if (success) {
+      _setMissionMascotState(_MissionMascotState.missionClear);
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+      if (!mounted) {
+        return;
+      }
+      _setMissionMascotState(
+        _MissionMascotState.jump,
+        hold: const Duration(milliseconds: 1600),
+      );
+      await ref
+          .read(mascotProfileProvider.notifier)
+          .rewardFromMissionResult(success: true);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('미션 성공! 게이지가 크게 올랐어.')));
+      return;
+    }
+
+    _setMissionMascotState(_MissionMascotState.missionFail);
+    await Future<void>.delayed(const Duration(milliseconds: 850));
+    if (!mounted) {
+      return;
+    }
+    _setMissionMascotState(
+      _MissionMascotState.sadTeary,
+      hold: const Duration(milliseconds: 1600),
+    );
+    await ref
+        .read(mascotProfileProvider.notifier)
+        .rewardFromMissionResult(success: false);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('미션 실패/시간 초과. 그래도 게이지는 조금 올랐어.')),
     );
   }
 
@@ -71,10 +225,15 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
             Text(_dismissStatus),
             const SizedBox(height: 10),
             FilledButton.tonal(
-              onPressed: () {
+              onPressed: () async {
                 setState(() {
                   _dismissStatus = '프리뷰: 사용자가 [미리 끄기]를 눌러 해당 알림 인스턴스를 해제했습니다.';
                 });
+                _setMissionMascotState(
+                  _MissionMascotState.wakeDrowsy,
+                  hold: const Duration(milliseconds: 1500),
+                );
+                await ref.read(mascotProfileProvider.notifier).rewardFromAlarmDismiss();
               },
               child: const Text('미리 끄기 UX 프리뷰'),
             ),
@@ -149,43 +308,28 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
     );
   }
 
-  List<Schedule> get _mockSchedules => const [
-    Schedule(
-      id: -21,
-      title: '컴퓨터개론',
-      type: ScheduleType.classType,
-      dayOfWeek: 1,
-      startTime: '09:00',
-      endTime: '10:30',
-      location: 'A동 201',
-      isCompleted: false,
-      alarmOffsetMinutes: 30,
-    ),
-    Schedule(
-      id: -22,
-      title: '프로그래밍 기초',
-      type: ScheduleType.classType,
-      dayOfWeek: 2,
-      startTime: '13:00',
-      endTime: '14:30',
-      location: 'B동 303',
-      isCompleted: false,
-      alarmOffsetMinutes: 60,
-    ),
-  ];
-
   Future<void> _openTracingMissionPreview() async {
-    await showDialog<void>(
+    _setMissionMascotState(_MissionMascotState.alarmPanic);
+    final result = await showDialog<bool>(
       context: context,
       builder: (context) => const _TracingMissionDialog(),
     );
+    if (result == null || !mounted) {
+      return;
+    }
+    await _runMissionResultSequence(result);
   }
 
   Future<void> _openShakingMissionPreview() async {
-    await showDialog<void>(
+    _setMissionMascotState(_MissionMascotState.alarmPanic);
+    final result = await showDialog<bool>(
       context: context,
       builder: (context) => const _ShakingMissionDialog(),
     );
+    if (result == null || !mounted) {
+      return;
+    }
+    await _runMissionResultSequence(result);
   }
 
   String _offsetLabel(int minutes) {
@@ -284,11 +428,7 @@ class _TracingMissionDialogState extends State<_TracingMissionDialog> {
         FilledButton(
           onPressed: () {
             final ok = _points.length >= 20;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(ok ? '미션 성공 프리뷰 ✅' : '흔적이 부족해요. 더 그려보세요.'),
-              ),
-            );
+            Navigator.of(context).pop(ok);
           },
           child: const Text('판정하기'),
         ),
@@ -415,13 +555,8 @@ class _ShakingMissionDialogState extends State<_ShakingMissionDialog> {
       if (_leftSeconds <= 1) {
         timer.cancel();
         _subscription?.cancel();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _shakeCount >= 7 ? 'Shaking 미션 성공 프리뷰 ✅' : '아쉽습니다! 다시 도전',
-            ),
-          ),
-        );
+        final success = _shakeCount >= 7;
+        Navigator.of(context).pop(success);
         return;
       }
 

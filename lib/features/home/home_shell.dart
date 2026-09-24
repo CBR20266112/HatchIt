@@ -12,7 +12,9 @@ import '../mascot/presentation/mascot_controller.dart';
 import '../mascot/presentation/mascot_hub_screen.dart';
 import '../minigame/presentation/campus_minigame_screen.dart';
 import '../mission/presentation/mission_alarm_screen.dart';
+import '../schedules/presentation/schedule_controller.dart';
 import '../schedules/presentation/widgets/timetable_screen.dart';
+import '../daily_records/presentation/daily_record_controller.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
@@ -27,6 +29,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
   int _lastHandledCatEventId = 0;
   final _alarmPermissionService = AlarmPermissionService();
+  final GlobalKey<MascotHubScreenState> _mascotHubKey =
+      GlobalKey<MascotHubScreenState>();
 
   @override
   void initState() {
@@ -74,7 +78,120 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         .resolve(success: result.success, taps: result.tapCount);
   }
 
+  Future<bool> _showDeveloperPasswordDialog(BuildContext context) async {
+    final passwordController = TextEditingController();
+    try {
+      final result = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('개발자 옵션 잠금'),
+            content: TextField(
+              controller: passwordController,
+              autofocus: true,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '비밀번호',
+                hintText: '숫자 8자리 입력',
+              ),
+              onSubmitted: (value) {
+                Navigator.of(dialogContext).pop(value == '20266112');
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(false);
+                },
+                child: const Text('취소'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(
+                    dialogContext,
+                  ).pop(passwordController.text == '20266112');
+                },
+                child: const Text('확인'),
+              ),
+            ],
+          );
+        },
+      );
+      return result ?? false;
+    } finally {
+      passwordController.dispose();
+    }
+  }
+
+  Future<void> _resetAppDataFromSettings() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('데이터 초기화'),
+          content: const Text(
+            '모든 일정, 알 성장 기록, 재화가 초기화됩니다. 계속하시겠습니까?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
+              child: const Text('초기화'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    await ref.read(scheduleListProvider.notifier).clearAllSchedules();
+    await ref.read(dailyRecordControllerProvider).clearAllRecords();
+    await ref.read(mascotProfileProvider.notifier).resetForAppDataClear();
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('앱이 초기 상태로 리셋되었습니다.')));
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _openTodayQuestionFromAppBar() async {
+    final state = _mascotHubKey.currentState;
+    if (state == null) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('비서실 화면에서 다시 시도해줘.')));
+      return;
+    }
+    await state.openTodayQuestion();
+  }
+
   Future<void> _openSettingsSheet() async {
+    if (!mounted) {
+      return;
+    }
     final l10n = AppLocalizations.of(context)!;
     final initialSpeciesId =
         ref.read(mascotProfileProvider).valueOrNull?.speciesId ?? 16;
@@ -89,12 +206,20 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         var selectedDeveloperSpeciesId = initialSpeciesId;
         var hatchWhenApplyingSpecies = true;
         String? developerStatusMessage;
+        var geminiApiKeyDraft = '';
+        var geminiDraftInitialized = false;
+        var geminiSaving = false;
+        String? geminiStatusMessage;
 
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return Consumer(
               builder: (context, ref, _) {
                 final settings = ref.watch(settingsControllerProvider);
+                if (!geminiDraftInitialized) {
+                  geminiApiKeyDraft = settings.geminiApiKey;
+                  geminiDraftInitialized = true;
+                }
                 return SafeArea(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -113,9 +238,30 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                               message: '개발자 옵션 토글',
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(10),
-                                onTap: () {
+                                onTap: () async {
+                                  if (showDeveloperOptions) {
+                                    setSheetState(() {
+                                      showDeveloperOptions = false;
+                                    });
+                                    return;
+                                  }
+
+                                  final authorized =
+                                      await _showDeveloperPasswordDialog(context);
+                                  if (!context.mounted) {
+                                    return;
+                                  }
+
+                                  if (!authorized) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('꺼져!')),
+                                    );
+                                    Navigator.of(context).pop();
+                                    return;
+                                  }
+
                                   setSheetState(() {
-                                    showDeveloperOptions = !showDeveloperOptions;
+                                    showDeveloperOptions = true;
                                   });
                                 },
                                 child: Container(
@@ -407,6 +553,215 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                 .setLocaleCode(next.first);
                           },
                         ),
+                        const SizedBox(height: 18),
+                        Text(
+                          'Gemini',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: geminiSaving
+                                ? null
+                                : () async {
+                                    final keyController = TextEditingController(
+                                      text: geminiApiKeyDraft,
+                                    );
+                                    final nextKey = await showModalBottomSheet<String>(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      showDragHandle: true,
+                                      builder: (sheetContext) {
+                                        var obscureKey = true;
+                                        return StatefulBuilder(
+                                          builder: (sheetContext, setModalState) {
+                                            return Padding(
+                                              padding: EdgeInsets.only(
+                                                left: 16,
+                                                right: 16,
+                                                top: 12,
+                                                bottom:
+                                                    MediaQuery.of(sheetContext)
+                                                        .viewInsets
+                                                        .bottom +
+                                                    20,
+                                              ),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          'Gemini 키 설정',
+                                                          style: Theme.of(
+                                                            sheetContext,
+                                                          ).textTheme.titleMedium,
+                                                        ),
+                                                      ),
+                                                      IconButton(
+                                                        tooltip: '가이드 보기',
+                                                        onPressed: () {
+                                                          showDialog<void>(
+                                                            context: sheetContext,
+                                                            builder: (
+                                                              guideContext,
+                                                            ) {
+                                                              return AlertDialog(
+                                                                title: const Text(
+                                                                  'Gemini 키 가이드',
+                                                                ),
+                                                                content: const Text(
+                                                                  '1) 먼저 브라우저에서 https://aistudio.google.com 에 접속해요.\n'
+                                                                  '   (구글 로그인 필요)\n'
+                                                                  '2) 상단/좌측의 Get API key 메뉴에서 키를 발급받아요.\n'
+                                                                  '3) 발급받은 키를 여기 입력창에 붙여넣고 저장해요.\n'
+                                                                  '4) 저장 후 비서실(...) 버튼으로 자연어 명령을 실행해요.\n\n'
+                                                                  '주의: API 키는 비밀번호처럼 취급하고 공유하지 마세요.',
+                                                                ),
+                                                                actions: [
+                                                                  TextButton(
+                                                                    onPressed: () {
+                                                                      Navigator.of(
+                                                                        guideContext,
+                                                                      ).pop();
+                                                                    },
+                                                                    child: const Text(
+                                                                      '확인',
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              );
+                                                            },
+                                                          );
+                                                        },
+                                                        icon: const Icon(
+                                                          Icons.help_outline,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  TextField(
+                                                    controller: keyController,
+                                                    obscureText: obscureKey,
+                                                    decoration: InputDecoration(
+                                                      labelText: 'Gemini API Key',
+                                                      hintText:
+                                                          'AIza... 형식 키 입력',
+                                                      border:
+                                                          const OutlineInputBorder(),
+                                                      suffixIcon: IconButton(
+                                                        onPressed: () {
+                                                          setModalState(() {
+                                                            obscureKey =
+                                                                !obscureKey;
+                                                          });
+                                                        },
+                                                        icon: Icon(
+                                                          obscureKey
+                                                              ? Icons
+                                                                    .visibility_off_rounded
+                                                              : Icons
+                                                                    .visibility_rounded,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: OutlinedButton(
+                                                          onPressed: () {
+                                                            Navigator.of(
+                                                              sheetContext,
+                                                            ).pop();
+                                                          },
+                                                          child: const Text('취소'),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Expanded(
+                                                        child: FilledButton(
+                                                          onPressed: () {
+                                                            Navigator.of(
+                                                              sheetContext,
+                                                            ).pop(
+                                                              keyController.text
+                                                                  .trim(),
+                                                            );
+                                                          },
+                                                          child: const Text('저장'),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        );
+                                      },
+                                    );
+                                    keyController.dispose();
+
+                                    if (nextKey == null) {
+                                      return;
+                                    }
+
+                                    geminiApiKeyDraft = nextKey;
+                                    setSheetState(() {
+                                      geminiSaving = true;
+                                      geminiStatusMessage = 'Gemini 키 저장 중...';
+                                    });
+                                    await ref
+                                        .read(settingsControllerProvider.notifier)
+                                        .setGeminiApiKey(nextKey);
+                                    if (!context.mounted) {
+                                      return;
+                                    }
+                                    setSheetState(() {
+                                      geminiSaving = false;
+                                      geminiStatusMessage = '저장 완료 ✅';
+                                    });
+                                  },
+                            icon: geminiSaving
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.key_rounded),
+                            label: const Text('Gemini 버튼 열기'),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          geminiStatusMessage ??
+                              'Gemini 버튼 → ? 순서로 누르면 어디서 키를 만드는지부터 안내해요.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Theme.of(context).colorScheme.error,
+                              side: BorderSide(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                            onPressed: _resetAppDataFromSettings,
+                            icon: const Icon(Icons.delete_forever_rounded),
+                            label: const Text('데이터 초기화'),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -433,7 +788,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     });
 
     final pages = [
-      MascotHubScreen(onOpenSettings: _openSettingsSheet),
+      MascotHubScreen(key: _mascotHubKey),
       const TimetableScreen(),
       const MissionAlarmScreen(),
       const CampusMiniGameScreen(),
@@ -445,6 +800,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       appBar: AppBar(
         title: Text(appBarTitles[_index]),
         actions: [
+          if (_index == 0)
+            IconButton(
+              tooltip: '오늘의 한마디',
+              onPressed: _openTodayQuestionFromAppBar,
+              icon: const Icon(Icons.edit_note_rounded),
+            ),
           IconButton(
             tooltip: '설정',
             onPressed: _openSettingsSheet,

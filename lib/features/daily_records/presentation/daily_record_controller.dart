@@ -27,4 +27,8 @@ class DailyRecordController {
   Future<void> addRecord(DailyRecord record) async {
     await _dao.create(record);
   }
+
+  Future<void> clearAllRecords() async {
+    await _dao.clearAll();
+  }
 }

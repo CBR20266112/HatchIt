@@ -49,4 +49,14 @@ class SettingsController extends StateNotifier<AppSettings> {
       return;
     }
   }
+
+  Future<void> setGeminiApiKey(String geminiApiKey) async {
+    final next = state.copyWith(geminiApiKey: geminiApiKey.trim());
+    state = next;
+    try {
+      await _repository.saveSettings(next);
+    } catch (_) {
+      return;
+    }
+  }
 }
