@@ -1,0 +1,17 @@
+{
+  "@@locale": "en",
+  "appTitle": "HatchIt",
+  "screenTimetable": "Screen 1 · Timetable",
+  "screenMission": "Screen 2 · Mission Alarm",
+  "screenPet": "Screen 3 · Pet Evolution",
+  "screenMiniGame": "Mini Game",
+  "themeMode": "Theme",
+  "themeSystem": "System",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "language": "Language",
+  "missionSample": "Wake-up mission sample",
+  "petStatus": "Egg Day 1 / 7",
+  "miniGameHint": "Tilt your phone to move (sensors preview).",
+  "ocrStub": "OCR timetable parsing (Gemini Vision) skeleton"
+}

@@ -1,0 +1,17 @@
+{
+  "@@locale": "ko",
+  "appTitle": "해칫 (HatchIt)",
+  "screenTimetable": "화면 1 · 시간표",
+  "screenMission": "화면 2 · 알람 미션",
+  "screenPet": "화면 3 · 펫 진화",
+  "screenMiniGame": "미니게임",
+  "themeMode": "테마",
+  "themeSystem": "시스템",
+  "themeLight": "라이트",
+  "themeDark": "다크",
+  "language": "언어",
+  "missionSample": "기상 미션 샘플",
+  "petStatus": "알 1일차 / 7일",
+  "miniGameHint": "휴대폰을 기울여 이동(센서 프리뷰)",
+  "ocrStub": "시간표 OCR(Gemini Vision) 연동 뼈대"
+}
