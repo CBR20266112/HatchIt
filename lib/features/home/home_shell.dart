@@ -29,6 +29,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
   int _lastHandledCatEventId = 0;
   final _alarmPermissionService = AlarmPermissionService();
+  final GlobalKey<MascotHubScreenState> _mascotHubKey =
+      GlobalKey<MascotHubScreenState>();
 
   @override
   void initState() {
@@ -170,6 +172,20 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       context,
     ).showSnackBar(const SnackBar(content: Text('앱이 초기 상태로 리셋되었습니다.')));
     Navigator.of(context).pop();
+  }
+
+  Future<void> _openTodayQuestionFromAppBar() async {
+    final state = _mascotHubKey.currentState;
+    if (state == null) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('비서실 화면에서 다시 시도해줘.')));
+      return;
+    }
+    await state.openTodayQuestion();
   }
 
   Future<void> _openSettingsSheet() async {
@@ -772,7 +788,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     });
 
     final pages = [
-      MascotHubScreen(onOpenSettings: _openSettingsSheet),
+      MascotHubScreen(key: _mascotHubKey),
       const TimetableScreen(),
       const MissionAlarmScreen(),
       const CampusMiniGameScreen(),
@@ -784,6 +800,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       appBar: AppBar(
         title: Text(appBarTitles[_index]),
         actions: [
+          if (_index == 0)
+            IconButton(
+              tooltip: '오늘의 한마디',
+              onPressed: _openTodayQuestionFromAppBar,
+              icon: const Icon(Icons.edit_note_rounded),
+            ),
           IconButton(
             tooltip: '설정',
             onPressed: _openSettingsSheet,

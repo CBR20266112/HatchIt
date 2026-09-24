@@ -18,6 +18,14 @@ class MascotProfile {
     required this.executionScore,
     required this.cognitionScore,
     required this.energyScore,
+    required this.natureScore,
+    required this.humanitiesScore,
+    required this.artPhysicalScore,
+    required this.serviceScore,
+    required this.educationScore,
+    required this.bohemianScore,
+    required this.burstPaceScore,
+    required this.deepFocusScore,
     required this.lastPetTime,
     required this.lastFeedTime,
   });
@@ -36,6 +44,14 @@ class MascotProfile {
   final int executionScore;
   final int cognitionScore;
   final int energyScore;
+  final int natureScore;
+  final int humanitiesScore;
+  final int artPhysicalScore;
+  final int serviceScore;
+  final int educationScore;
+  final int bohemianScore;
+  final int burstPaceScore;
+  final int deepFocusScore;
   final DateTime? lastPetTime;
   final DateTime? lastFeedTime;
 
@@ -56,6 +72,14 @@ class MascotProfile {
     executionScore: 0,
     cognitionScore: 0,
     energyScore: 0,
+    natureScore: 0,
+    humanitiesScore: 0,
+    artPhysicalScore: 0,
+    serviceScore: 0,
+    educationScore: 0,
+    bohemianScore: 0,
+    burstPaceScore: 0,
+    deepFocusScore: 0,
     lastPetTime: null,
     lastFeedTime: null,
   );
@@ -75,6 +99,14 @@ class MascotProfile {
     int? executionScore,
     int? cognitionScore,
     int? energyScore,
+    int? natureScore,
+    int? humanitiesScore,
+    int? artPhysicalScore,
+    int? serviceScore,
+    int? educationScore,
+    int? bohemianScore,
+    int? burstPaceScore,
+    int? deepFocusScore,
     Object? lastPetTime = _copyWithUnset,
     Object? lastFeedTime = _copyWithUnset,
   }) {
@@ -97,6 +129,14 @@ class MascotProfile {
       executionScore: executionScore ?? this.executionScore,
       cognitionScore: cognitionScore ?? this.cognitionScore,
       energyScore: energyScore ?? this.energyScore,
+      natureScore: natureScore ?? this.natureScore,
+      humanitiesScore: humanitiesScore ?? this.humanitiesScore,
+      artPhysicalScore: artPhysicalScore ?? this.artPhysicalScore,
+      serviceScore: serviceScore ?? this.serviceScore,
+      educationScore: educationScore ?? this.educationScore,
+      bohemianScore: bohemianScore ?? this.bohemianScore,
+      burstPaceScore: burstPaceScore ?? this.burstPaceScore,
+      deepFocusScore: deepFocusScore ?? this.deepFocusScore,
       lastPetTime: lastPetTime == _copyWithUnset
           ? this.lastPetTime
           : lastPetTime as DateTime?,
@@ -122,6 +162,14 @@ class MascotProfile {
       'execution_score': executionScore,
       'cognition_score': cognitionScore,
       'energy_score': energyScore,
+      'nature_score': natureScore,
+      'humanities_score': humanitiesScore,
+      'art_physical_score': artPhysicalScore,
+      'service_score': serviceScore,
+      'education_score': educationScore,
+      'bohemian_score': bohemianScore,
+      'burst_pace_score': burstPaceScore,
+      'deep_focus_score': deepFocusScore,
       'last_pet_time': lastPetTime?.toIso8601String(),
       'last_feed_time': lastFeedTime?.toIso8601String(),
     };
@@ -143,6 +191,14 @@ class MascotProfile {
       executionScore: (map['execution_score'] as int?) ?? 0,
       cognitionScore: (map['cognition_score'] as int?) ?? 0,
       energyScore: (map['energy_score'] as int?) ?? 0,
+      natureScore: (map['nature_score'] as int?) ?? 0,
+      humanitiesScore: (map['humanities_score'] as int?) ?? 0,
+      artPhysicalScore: (map['art_physical_score'] as int?) ?? 0,
+      serviceScore: (map['service_score'] as int?) ?? 0,
+      educationScore: (map['education_score'] as int?) ?? 0,
+      bohemianScore: (map['bohemian_score'] as int?) ?? 0,
+      burstPaceScore: (map['burst_pace_score'] as int?) ?? 0,
+      deepFocusScore: (map['deep_focus_score'] as int?) ?? 0,
       lastPetTime: DateTime.tryParse((map['last_pet_time'] as String?) ?? ''),
       lastFeedTime: DateTime.tryParse((map['last_feed_time'] as String?) ?? ''),
     );

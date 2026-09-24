@@ -35,71 +35,39 @@ Widget _buildArcadeMascotAsset({
   return buildAt(0);
 }
 
-class CampusMiniGameScreen extends ConsumerWidget {
+class CampusMiniGameScreen extends ConsumerStatefulWidget {
   const CampusMiniGameScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
+  ConsumerState<CampusMiniGameScreen> createState() =>
+      _CampusMiniGameScreenState();
+}
 
-    Future<void> openGame(_ArcadeGame game) async {
-      switch (game) {
-        case _ArcadeGame.keycap:
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              fullscreenDialog: true,
-              builder: (_) => _KeycapGamePage(
-                onReward: ({exp = 0, furBalls = 0, keycaps = 0}) async {
-                  await ref
-                      .read(mascotProfileProvider.notifier)
-                      .grantMiniGameRewards(
-                        exp: exp,
-                        furBalls: furBalls,
-                        keycaps: keycaps,
-                      );
-                },
-              ),
-            ),
-          );
-          return;
-        case _ArcadeGame.stealthPhone:
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              fullscreenDialog: true,
-              builder: (_) => _StealthPhoneGamePage(
-                onReward: ({exp = 0, furBalls = 0, keycaps = 0}) async {
-                  await ref
-                      .read(mascotProfileProvider.notifier)
-                      .grantMiniGameRewards(
-                        exp: exp,
-                        furBalls: furBalls,
-                        keycaps: keycaps,
-                      );
-                },
-              ),
-            ),
-          );
-          return;
-        case _ArcadeGame.catCombo:
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              fullscreenDialog: true,
-              builder: (_) => _CatComboGamePage(
-                onReward: ({exp = 0, furBalls = 0, keycaps = 0}) async {
-                  await ref
-                      .read(mascotProfileProvider.notifier)
-                      .grantMiniGameRewards(
-                        exp: exp,
-                        furBalls: furBalls,
-                        keycaps: keycaps,
-                      );
-                },
-              ),
-            ),
-          );
-          return;
+class _CampusMiniGameScreenState extends ConsumerState<CampusMiniGameScreen> {
+  static const Duration _gameCooldown = Duration(minutes: 30);
+  final Map<_ArcadeGame, DateTime> _lastPlayedAt = {};
+  Timer? _cooldownTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _cooldownTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) {
+        return;
       }
-    }
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _cooldownTicker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
@@ -107,6 +75,11 @@ class CampusMiniGameScreen extends ConsumerWidget {
         Text('캠퍼스 오락실', style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 10),
         Text(l10n.screenMiniGame),
+        const SizedBox(height: 8),
+        Text(
+          '각 게임은 플레이 후 30분 쿨타임이 적용돼요.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
         const SizedBox(height: 12),
         GridView.count(
           shrinkWrap: true,
@@ -121,26 +94,133 @@ class CampusMiniGameScreen extends ConsumerWidget {
               subtitle: '탭/플릭 + 3% 희귀 키캡',
               icon: Icons.keyboard_outlined,
               color: const Color(0xFF5C6BC0),
-              onTap: () => openGame(_ArcadeGame.keycap),
+              onTap: () => _openGame(_ArcadeGame.keycap),
+              isLocked: _isGameLocked(_ArcadeGame.keycap),
+              cooldownLabel: _cooldownLabel(_ArcadeGame.keycap),
             ),
             _ArcadeShellCard(
               title: '교수님 몰래 폰 보기',
               subtitle: '롱터치 + 랜덤 경고 회피',
               icon: Icons.smartphone_outlined,
               color: const Color(0xFF26A69A),
-              onTap: () => openGame(_ArcadeGame.stealthPhone),
+              onTap: () => _openGame(_ArcadeGame.stealthPhone),
+              isLocked: _isGameLocked(_ArcadeGame.stealthPhone),
+              cooldownLabel: _cooldownLabel(_ArcadeGame.stealthPhone),
             ),
             _ArcadeShellCard(
               title: '길고양이 궁디팡팡',
               subtitle: '3초 쓰다듬기 + 5초 연타',
               icon: Icons.pets_outlined,
               color: const Color(0xFFFFA726),
-              onTap: () => openGame(_ArcadeGame.catCombo),
+              onTap: () => _openGame(_ArcadeGame.catCombo),
+              isLocked: _isGameLocked(_ArcadeGame.catCombo),
+              cooldownLabel: _cooldownLabel(_ArcadeGame.catCombo),
             ),
           ],
         ),
       ],
     );
+  }
+
+  Future<void> _openGame(_ArcadeGame game) async {
+    final remain = _remainingCooldown(game);
+    if (remain > Duration.zero) {
+      final mm = remain.inMinutes.toString().padLeft(2, '0');
+      final ss = remain.inSeconds.remainder(60).toString().padLeft(2, '0');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('쿨타임 중이야! $mm:$ss 뒤에 다시 열려.')));
+      return;
+    }
+
+    setState(() {
+      _lastPlayedAt[game] = DateTime.now();
+    });
+
+    switch (game) {
+      case _ArcadeGame.keycap:
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => _KeycapGamePage(
+              onReward: ({exp = 0, furBalls = 0, keycaps = 0}) async {
+                await ref
+                    .read(mascotProfileProvider.notifier)
+                    .grantMiniGameRewards(
+                      exp: exp,
+                      furBalls: furBalls,
+                      keycaps: keycaps,
+                    );
+              },
+            ),
+          ),
+        );
+      case _ArcadeGame.stealthPhone:
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => _StealthPhoneGamePage(
+              onReward: ({exp = 0, furBalls = 0, keycaps = 0}) async {
+                await ref
+                    .read(mascotProfileProvider.notifier)
+                    .grantMiniGameRewards(
+                      exp: exp,
+                      furBalls: furBalls,
+                      keycaps: keycaps,
+                    );
+              },
+            ),
+          ),
+        );
+      case _ArcadeGame.catCombo:
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => _CatComboGamePage(
+              onReward: ({exp = 0, furBalls = 0, keycaps = 0}) async {
+                await ref
+                    .read(mascotProfileProvider.notifier)
+                    .grantMiniGameRewards(
+                      exp: exp,
+                      furBalls: furBalls,
+                      keycaps: keycaps,
+                    );
+              },
+            ),
+          ),
+        );
+    }
+
+    await ref.read(mascotProfileProvider.notifier).rewardFromMiniGameSession();
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('플레이 완료! 참여 보상으로 게이지가 소폭 상승했어.')));
+  }
+
+  bool _isGameLocked(_ArcadeGame game) {
+    return _remainingCooldown(game) > Duration.zero;
+  }
+
+  Duration _remainingCooldown(_ArcadeGame game) {
+    final playedAt = _lastPlayedAt[game];
+    if (playedAt == null) {
+      return Duration.zero;
+    }
+    final remain = _gameCooldown - DateTime.now().difference(playedAt);
+    return remain.isNegative ? Duration.zero : remain;
+  }
+
+  String _cooldownLabel(_ArcadeGame game) {
+    final remain = _remainingCooldown(game);
+    if (remain == Duration.zero) {
+      return '탭해서 시작';
+    }
+    final mm = remain.inMinutes.toString().padLeft(2, '0');
+    final ss = remain.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '쿨타임 $mm:$ss';
   }
 }
 
@@ -151,6 +231,8 @@ class _ArcadeShellCard extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    required this.isLocked,
+    required this.cooldownLabel,
   });
 
   final String title;
@@ -158,6 +240,8 @@ class _ArcadeShellCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final bool isLocked;
+  final String cooldownLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -189,9 +273,9 @@ class _ArcadeShellCard extends StatelessWidget {
                 Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
                 const Spacer(),
                 Text(
-                  '탭해서 시작',
+                  cooldownLabel,
                   style: TextStyle(
-                    color: color,
+                    color: isLocked ? Theme.of(context).colorScheme.error : color,
                     fontWeight: FontWeight.w700,
                     fontSize: 12,
                   ),

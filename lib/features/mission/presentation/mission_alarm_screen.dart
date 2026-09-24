@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../mascot/presentation/mascot_controller.dart';
 import '../../schedules/domain/schedule.dart';
 import '../../schedules/presentation/schedule_controller.dart';
 
@@ -75,7 +76,7 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
 
     return schedulesValue.when(
       data: (schedules) {
-        final shellSchedules = schedules.isEmpty ? _mockSchedules : schedules;
+        final shellSchedules = schedules;
 
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -90,7 +91,18 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
             const SizedBox(height: 12),
             Text('알람 카드', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            ...shellSchedules.map(_buildAlarmCard),
+            if (shellSchedules.isEmpty)
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Text('등록된 일정이 없습니다. 시간표 탭에서 먼저 일정을 추가해 주세요.'),
+                ),
+              )
+            else
+              ...shellSchedules.map(_buildAlarmCard),
           ],
         );
       },
@@ -159,9 +171,15 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
         _MissionMascotState.jump,
         hold: const Duration(milliseconds: 1600),
       );
+      await ref
+          .read(mascotProfileProvider.notifier)
+          .rewardFromMissionResult(success: true);
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('미션 성공!')));
+      ).showSnackBar(const SnackBar(content: Text('미션 성공! 게이지가 크게 올랐어.')));
       return;
     }
 
@@ -174,9 +192,15 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
       _MissionMascotState.sadTeary,
       hold: const Duration(milliseconds: 1600),
     );
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('미션 실패/시간 초과. 다시 도전해봐요.')));
+    await ref
+        .read(mascotProfileProvider.notifier)
+        .rewardFromMissionResult(success: false);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('미션 실패/시간 초과. 그래도 게이지는 조금 올랐어.')),
+    );
   }
 
   Widget _buildDismissStatusCard() {
@@ -201,7 +225,7 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
             Text(_dismissStatus),
             const SizedBox(height: 10),
             FilledButton.tonal(
-              onPressed: () {
+              onPressed: () async {
                 setState(() {
                   _dismissStatus = '프리뷰: 사용자가 [미리 끄기]를 눌러 해당 알림 인스턴스를 해제했습니다.';
                 });
@@ -209,6 +233,7 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
                   _MissionMascotState.wakeDrowsy,
                   hold: const Duration(milliseconds: 1500),
                 );
+                await ref.read(mascotProfileProvider.notifier).rewardFromAlarmDismiss();
               },
               child: const Text('미리 끄기 UX 프리뷰'),
             ),
@@ -282,31 +307,6 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
       ),
     );
   }
-
-  List<Schedule> get _mockSchedules => const [
-    Schedule(
-      id: -21,
-      title: '컴퓨터개론',
-      type: ScheduleType.classType,
-      dayOfWeek: 1,
-      startTime: '09:00',
-      endTime: '10:30',
-      location: 'A동 201',
-      isCompleted: false,
-      alarmOffsetMinutes: 30,
-    ),
-    Schedule(
-      id: -22,
-      title: '프로그래밍 기초',
-      type: ScheduleType.classType,
-      dayOfWeek: 2,
-      startTime: '13:00',
-      endTime: '14:30',
-      location: 'B동 303',
-      isCompleted: false,
-      alarmOffsetMinutes: 60,
-    ),
-  ];
 
   Future<void> _openTracingMissionPreview() async {
     _setMissionMascotState(_MissionMascotState.alarmPanic);

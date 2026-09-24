@@ -86,9 +86,7 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: schedulesValue.when(
         data: (schedules) {
-          final effectiveSchedules = schedules.isEmpty
-              ? _mockSchedules
-              : schedules;
+          final effectiveSchedules = schedules;
           final mascotState = _resolveTimetableMascotState(effectiveSchedules);
 
           return ListView(
@@ -112,9 +110,7 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      schedules.isEmpty
-                          ? 'Mock 시간표'
-                          : '${schedules.length}개 일정',
+                      '${schedules.length}개 일정',
                       style: Theme.of(context).textTheme.labelMedium,
                     ),
                   ),
@@ -731,10 +727,10 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
       return;
     }
 
-    if (schedule.id == null || schedule.id! < 0) {
+    if (schedule.id == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('샘플 일정은 삭제할 수 없어요.')));
+      ).showSnackBar(const SnackBar(content: Text('삭제할 일정 ID를 찾지 못했어요.')));
       return;
     }
 
@@ -773,42 +769,6 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
       await ref.read(scheduleListProvider.notifier).updateSchedule(result);
     }
   }
-
-  List<Schedule> get _mockSchedules => const [
-    Schedule(
-      id: -11,
-      title: '컴퓨터개론',
-      type: ScheduleType.classType,
-      dayOfWeek: 1,
-      startTime: '09:00',
-      endTime: '10:30',
-      location: 'A동 201',
-      isCompleted: false,
-      alarmOffsetMinutes: 30,
-    ),
-    Schedule(
-      id: -12,
-      title: '프로그래밍 기초',
-      type: ScheduleType.classType,
-      dayOfWeek: 2,
-      startTime: '13:00',
-      endTime: '14:30',
-      location: 'B동 303',
-      isCompleted: false,
-      alarmOffsetMinutes: 60,
-    ),
-    Schedule(
-      id: -13,
-      title: '컴퓨터교육론',
-      type: ScheduleType.classType,
-      dayOfWeek: 4,
-      startTime: '15:00',
-      endTime: '16:30',
-      location: '사범대 105',
-      isCompleted: false,
-      alarmOffsetMinutes: 30,
-    ),
-  ];
 
   int _toMinutes(String hhmm) {
     final parts = hhmm.split(':');

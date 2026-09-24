@@ -72,69 +72,360 @@ const Map<_HubVisualState, List<String>> _hubVisualCandidates = {
     'action_wave.png',
   ],
   _HubVisualState.holdFurball: ['hold_furball.png', 'action_box.png'],
-  _HubVisualState.eggHatch: ['egg_hatch.png', 'idle_4.png', 'idle_3.png'],
+  _HubVisualState.eggHatch: ['egg_6.png', 'egg_5.png', 'egg_4.png'],
 };
 
 const _hubTapReactionPool = [_HubVisualState.curiousTap, _HubVisualState.happy];
 
-class _EggDailyQuestion {
-  const _EggDailyQuestion({
+enum _AdaptiveTrack {
+  nature,
+  humanities,
+  artPhysical,
+  service,
+  education,
+  bohemian,
+}
+
+class _AdaptiveEggOption {
+  const _AdaptiveEggOption({
+    required this.label,
+    required this.payload,
+  });
+
+  final String label;
+  final AdaptiveEggAnswerPayload payload;
+}
+
+class _AdaptiveEggQuestion {
+  const _AdaptiveEggQuestion({
     required this.question,
-    required this.axis,
-    required this.positiveLabel,
-    required this.negativeLabel,
+    required this.options,
   });
 
   final String question;
-  final PersonalityAxis axis;
-  final String positiveLabel;
-  final String negativeLabel;
+  final List<_AdaptiveEggOption> options;
 }
 
-const List<_EggDailyQuestion> _eggDailyQuestions = [
-  _EggDailyQuestion(
-    question: 'Day 1 · 너는 아침형이야, 밤형이야?',
-    axis: PersonalityAxis.rhythm,
-    positiveLabel: '밤에 더 집중됨 (야행성)',
-    negativeLabel: '아침이 더 잘 맞음 (아침형)',
-  ),
-  _EggDailyQuestion(
-    question: 'Day 2 · 과제 스타일은?',
-    axis: PersonalityAxis.execution,
-    positiveLabel: '마감 직전 스퍼트형',
-    negativeLabel: '계획대로 꾸준형',
-  ),
-  _EggDailyQuestion(
-    question: 'Day 3 · 공부할 때 어디가 더 편해?',
-    axis: PersonalityAxis.cognition,
-    positiveLabel: '글/서술 중심 과목이 편함',
-    negativeLabel: '수학/논리 중심 과목이 편함',
-  ),
-  _EggDailyQuestion(
-    question: 'Day 4 · 에너지는 어느 쪽?',
-    axis: PersonalityAxis.energy,
-    positiveLabel: '활동적이고 에너지 넘침',
-    negativeLabel: '차분하고 조용한 편',
-  ),
-  _EggDailyQuestion(
-    question: 'Day 5 · 시험 기간 루틴은?',
-    axis: PersonalityAxis.rhythm,
-    positiveLabel: '밤샘 집중 루틴',
-    negativeLabel: '아침 일찍 시작 루틴',
-  ),
-  _EggDailyQuestion(
-    question: 'Day 6 · 과제 시작 방식은?',
-    axis: PersonalityAxis.execution,
-    positiveLabel: '한 번에 몰아서 처리',
-    negativeLabel: '쪼개서 미리 처리',
-  ),
-  _EggDailyQuestion(
-    question: 'Day 7 · 팀플에서 나는?',
-    axis: PersonalityAxis.energy,
-    positiveLabel: '발표/진행 맡는 편',
-    negativeLabel: '자료 정리/분석 맡는 편',
-  ),
-];
+_AdaptiveTrack _dominantTrackFromProfile(MascotProfile profile) {
+  final scoreByTrack = <_AdaptiveTrack, int>{
+    _AdaptiveTrack.nature: profile.natureScore,
+    _AdaptiveTrack.humanities: profile.humanitiesScore,
+    _AdaptiveTrack.artPhysical: profile.artPhysicalScore,
+    _AdaptiveTrack.service: profile.serviceScore,
+    _AdaptiveTrack.education: profile.educationScore,
+    _AdaptiveTrack.bohemian: profile.bohemianScore,
+  };
+
+  return scoreByTrack.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+}
+
+_AdaptiveEggQuestion _resolveAdaptiveEggQuestion(MascotProfile profile) {
+  final day = profile.eggCrackDay.clamp(0, 6);
+  if (day == 0) {
+    return const _AdaptiveEggQuestion(
+      question: 'Day 1 · 에너지를 푸는 방식은?',
+      options: [
+        _AdaptiveEggOption(
+          label: '혼자 깊게 파고드는 몰입형',
+          payload: AdaptiveEggAnswerPayload(deepFocusDelta: 1),
+        ),
+        _AdaptiveEggOption(
+          label: '사람/움직임 중심 행동형',
+          payload: AdaptiveEggAnswerPayload(deepFocusDelta: 0),
+        ),
+      ],
+    );
+  }
+
+  if (day == 1) {
+    return const _AdaptiveEggQuestion(
+      question: 'Day 2 · 스트레스 상황에서 손이 가는 대상은?',
+      options: [
+        _AdaptiveEggOption(
+          label: '텍스트/기록/정리',
+          payload: AdaptiveEggAnswerPayload(humanitiesDelta: 2),
+        ),
+        _AdaptiveEggOption(
+          label: '기계/원리/코드',
+          payload: AdaptiveEggAnswerPayload(natureDelta: 2),
+        ),
+        _AdaptiveEggOption(
+          label: '몸/감각/리듬',
+          payload: AdaptiveEggAnswerPayload(artPhysicalDelta: 2),
+        ),
+        _AdaptiveEggOption(
+          label: '사람 케어/안내/멍때리기',
+          payload: AdaptiveEggAnswerPayload(
+            serviceDelta: 1,
+            educationDelta: 1,
+            bohemianDelta: 1,
+          ),
+        ),
+      ],
+    );
+  }
+
+  if (day == 5) {
+    return const _AdaptiveEggQuestion(
+      question: 'Day 6 · 과제 시작 템포는?',
+      options: [
+        _AdaptiveEggOption(
+          label: '꾸준한 분할 루틴',
+          payload: AdaptiveEggAnswerPayload(burstPaceDelta: 0, deepFocusDelta: 1),
+        ),
+        _AdaptiveEggOption(
+          label: '벼락치기 스프린트',
+          payload: AdaptiveEggAnswerPayload(burstPaceDelta: 1),
+        ),
+      ],
+    );
+  }
+
+  if (day == 6) {
+    return const _AdaptiveEggQuestion(
+      question: 'Day 7 · 마감 직전 스타일은?',
+      options: [
+        _AdaptiveEggOption(
+          label: '체크리스트 정리 후 안정 제출',
+          payload: AdaptiveEggAnswerPayload(burstPaceDelta: 0, deepFocusDelta: 1),
+        ),
+        _AdaptiveEggOption(
+          label: '속도전으로 핵심만 압축 제출',
+          payload: AdaptiveEggAnswerPayload(burstPaceDelta: 1),
+        ),
+      ],
+    );
+  }
+
+  final track = _dominantTrackFromProfile(profile);
+  final adaptiveDay = day - 1; // Day3~5 => 1~3
+
+  switch (track) {
+    case _AdaptiveTrack.nature:
+      if (adaptiveDay == 1) {
+        return const _AdaptiveEggQuestion(
+          question: 'Day 3 · 자연/원리 트랙: 어디가 더 끌려?',
+          options: [
+            _AdaptiveEggOption(
+              label: '논리 퍼즐/원리 규명형',
+              payload: AdaptiveEggAnswerPayload(natureDelta: 2, deepFocusDelta: 1),
+            ),
+            _AdaptiveEggOption(
+              label: '실물 도구 조작/메이킹형',
+              payload: AdaptiveEggAnswerPayload(natureDelta: 2),
+            ),
+          ],
+        );
+      }
+      if (adaptiveDay == 2) {
+        return const _AdaptiveEggQuestion(
+          question: 'Day 4 · 막히는 문제를 만나면?',
+          options: [
+            _AdaptiveEggOption(
+              label: '원인을 끝까지 추적한다',
+              payload: AdaptiveEggAnswerPayload(natureDelta: 2, deepFocusDelta: 1),
+            ),
+            _AdaptiveEggOption(
+              label: '도구/환경을 바꿔 빠르게 실험한다',
+              payload: AdaptiveEggAnswerPayload(natureDelta: 2, burstPaceDelta: 1),
+            ),
+          ],
+        );
+      }
+      return const _AdaptiveEggQuestion(
+        question: 'Day 5 · 결과물을 낼 때 더 중요한 건?',
+        options: [
+          _AdaptiveEggOption(
+            label: '정확한 원리 설명',
+            payload: AdaptiveEggAnswerPayload(natureDelta: 2, deepFocusDelta: 1),
+          ),
+          _AdaptiveEggOption(
+            label: '실제로 돌아가는 프로토타입',
+            payload: AdaptiveEggAnswerPayload(natureDelta: 2, burstPaceDelta: 1),
+          ),
+        ],
+      );
+
+    case _AdaptiveTrack.humanities:
+      if (adaptiveDay == 1) {
+        return const _AdaptiveEggQuestion(
+          question: 'Day 3 · 인문/텍스트 트랙: 너의 모드는?',
+          options: [
+            _AdaptiveEggOption(
+              label: '깊은 사색/독서/기록형',
+              payload: AdaptiveEggAnswerPayload(humanitiesDelta: 2, deepFocusDelta: 1),
+            ),
+            _AdaptiveEggOption(
+              label: '트렌드 분석/정보 탐색/위트형',
+              payload: AdaptiveEggAnswerPayload(humanitiesDelta: 2),
+            ),
+          ],
+        );
+      }
+      if (adaptiveDay == 2) {
+        return const _AdaptiveEggQuestion(
+          question: 'Day 4 · 발표/글쓰기 준비할 때?',
+          options: [
+            _AdaptiveEggOption(
+              label: '긴 호흡으로 구조를 설계한다',
+              payload: AdaptiveEggAnswerPayload(humanitiesDelta: 2, deepFocusDelta: 1),
+            ),
+            _AdaptiveEggOption(
+              label: '핵심 문장과 임팩트를 먼저 잡는다',
+              payload: AdaptiveEggAnswerPayload(humanitiesDelta: 2, burstPaceDelta: 1),
+            ),
+          ],
+        );
+      }
+      return const _AdaptiveEggQuestion(
+        question: 'Day 5 · 정보 과부하일 때 대처는?',
+        options: [
+          _AdaptiveEggOption(
+            label: '핵심 개념을 노트로 압축',
+            payload: AdaptiveEggAnswerPayload(humanitiesDelta: 2, deepFocusDelta: 1),
+          ),
+          _AdaptiveEggOption(
+            label: '최신 흐름 먼저 훑고 우선순위 정리',
+            payload: AdaptiveEggAnswerPayload(humanitiesDelta: 2),
+          ),
+        ],
+      );
+
+    case _AdaptiveTrack.artPhysical:
+      if (adaptiveDay == 1) {
+        return const _AdaptiveEggQuestion(
+          question: 'Day 3 · 예술체육/감각 트랙: 어디가 더 맞아?',
+          options: [
+            _AdaptiveEggOption(
+              label: '땀 흘리는 신체 활동형',
+              payload: AdaptiveEggAnswerPayload(artPhysicalDelta: 2, burstPaceDelta: 1),
+            ),
+            _AdaptiveEggOption(
+              label: '소리/리듬/시각 감각형',
+              payload: AdaptiveEggAnswerPayload(artPhysicalDelta: 2),
+            ),
+          ],
+        );
+      }
+      if (adaptiveDay == 2) {
+        return const _AdaptiveEggQuestion(
+          question: 'Day 4 · 집중이 안 될 때 선택은?',
+          options: [
+            _AdaptiveEggOption(
+              label: '몸부터 깨우는 산책/운동',
+              payload: AdaptiveEggAnswerPayload(artPhysicalDelta: 2, burstPaceDelta: 1),
+            ),
+            _AdaptiveEggOption(
+              label: '음악/색감으로 감각 리셋',
+              payload: AdaptiveEggAnswerPayload(artPhysicalDelta: 2),
+            ),
+          ],
+        );
+      }
+      return const _AdaptiveEggQuestion(
+        question: 'Day 5 · 결과물을 만들 때 기준은?',
+        options: [
+          _AdaptiveEggOption(
+            label: '에너지와 속도감',
+            payload: AdaptiveEggAnswerPayload(artPhysicalDelta: 2, burstPaceDelta: 1),
+          ),
+          _AdaptiveEggOption(
+            label: '분위기와 감정선',
+            payload: AdaptiveEggAnswerPayload(artPhysicalDelta: 2, deepFocusDelta: 1),
+          ),
+        ],
+      );
+
+    case _AdaptiveTrack.service:
+      if (adaptiveDay == 1) {
+        return const _AdaptiveEggQuestion(
+          question: 'Day 3 · 봉사/교육/자유 트랙: 어떤 역할이 편해?',
+          options: [
+            _AdaptiveEggOption(
+              label: '타인의 멘탈 돌봄형',
+              payload: AdaptiveEggAnswerPayload(serviceDelta: 2, deepFocusDelta: 1),
+            ),
+            _AdaptiveEggOption(
+              label: '페이스 조율/안내형',
+              payload: AdaptiveEggAnswerPayload(educationDelta: 2),
+            ),
+            _AdaptiveEggOption(
+              label: '무계획 즉흥 방랑형',
+              payload: AdaptiveEggAnswerPayload(bohemianDelta: 2, burstPaceDelta: 1),
+            ),
+          ],
+        );
+      }
+      if (adaptiveDay == 2) {
+        return const _AdaptiveEggQuestion(
+          question: 'Day 4 · 팀 분위기가 무너질 때?',
+          options: [
+            _AdaptiveEggOption(
+              label: '감정부터 안정시킨다',
+              payload: AdaptiveEggAnswerPayload(serviceDelta: 2, deepFocusDelta: 1),
+            ),
+            _AdaptiveEggOption(
+              label: '일정과 역할을 다시 맞춘다',
+              payload: AdaptiveEggAnswerPayload(educationDelta: 2),
+            ),
+            _AdaptiveEggOption(
+              label: '일단 분위기 전환하고 흘려보낸다',
+              payload: AdaptiveEggAnswerPayload(bohemianDelta: 2, burstPaceDelta: 1),
+            ),
+          ],
+        );
+      }
+      return const _AdaptiveEggQuestion(
+        question: 'Day 5 · 누군가 지쳤다고 말하면?',
+        options: [
+          _AdaptiveEggOption(
+            label: '옆에서 들어주고 회복을 돕는다',
+            payload: AdaptiveEggAnswerPayload(serviceDelta: 2),
+          ),
+          _AdaptiveEggOption(
+            label: '작은 단위로 계획을 재설계한다',
+            payload: AdaptiveEggAnswerPayload(educationDelta: 2, deepFocusDelta: 1),
+          ),
+          _AdaptiveEggOption(
+            label: '잠깐 쉬고 새 방식으로 재시작한다',
+            payload: AdaptiveEggAnswerPayload(bohemianDelta: 2),
+          ),
+        ],
+      );
+
+    case _AdaptiveTrack.education:
+      return const _AdaptiveEggQuestion(
+        question: 'Day 3~5 · 교육 트랙 심화: 리딩 스타일은?',
+        options: [
+          _AdaptiveEggOption(
+            label: '한 걸음씩 페이스 메이킹',
+            payload: AdaptiveEggAnswerPayload(educationDelta: 2, deepFocusDelta: 1),
+          ),
+          _AdaptiveEggOption(
+            label: '상황 맞춤 즉시 코칭',
+            payload: AdaptiveEggAnswerPayload(educationDelta: 2, burstPaceDelta: 1),
+          ),
+        ],
+      );
+
+    case _AdaptiveTrack.bohemian:
+      return const _AdaptiveEggQuestion(
+        question: 'Day 3~5 · 자유분방 트랙 심화: 오늘의 기분은?',
+        options: [
+          _AdaptiveEggOption(
+            label: '도파민 폭발 즉흥 질주',
+            payload: AdaptiveEggAnswerPayload(bohemianDelta: 2, burstPaceDelta: 1),
+          ),
+          _AdaptiveEggOption(
+            label: '태평낙천 유유자적',
+            payload: AdaptiveEggAnswerPayload(bohemianDelta: 2),
+          ),
+        ],
+      );
+  }
+}
+
+
 
 bool _isNightSleepWindow(DateTime now) => now.hour >= 23 || now.hour < 6;
 
@@ -212,15 +503,13 @@ String _debugVisualLabel(_HubVisualState state) {
 }
 
 class MascotHubScreen extends ConsumerStatefulWidget {
-  const MascotHubScreen({super.key, this.onOpenSettings});
-
-  final VoidCallback? onOpenSettings;
+  const MascotHubScreen({super.key});
 
   @override
-  ConsumerState<MascotHubScreen> createState() => _MascotHubScreenState();
+  ConsumerState<MascotHubScreen> createState() => MascotHubScreenState();
 }
 
-class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
+class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
   Timer? _uiTicker;
   Timer? _visualStateTimer;
   DateTime _now = DateTime.now();
@@ -290,46 +579,17 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
         return Stack(
           children: [
             ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '비서실',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                    ),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ActionChip(
-                          avatar: const Icon(Icons.edit_note_rounded),
-                          label: const Text('오늘의 한 줄 문답'),
-                          onPressed: _openTodayQuestion,
-                        ),
-                        ActionChip(
-                          avatar: const Icon(Icons.settings_rounded),
-                          label: const Text('설정'),
-                          onPressed: widget.onOpenSettings,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
                 _buildFloatingCurrencyBar(profile, palette),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 _buildMascotShowcase(
                   profile: profile,
                   l10n: l10n,
                   canBrush: canBrush,
                   palette: palette,
                 ),
-                const SizedBox(height: 14),
-                _buildGaugeCard(profile),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 _buildBottomControls(
                   profile: profile,
                   petRemain: petRemain,
@@ -478,7 +738,7 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
     final candidates = _resolveVisualCandidates(profile, visualState);
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: LinearGradient(
@@ -528,9 +788,9 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Container(
-            height: 220,
+            height: 188,
             width: double.infinity,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
@@ -561,13 +821,15 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
                             child: _buildAssetWithFallback(
                               base: base,
                               candidates: candidates,
-                              width: 190,
-                              height: 190,
+                              width: 170,
+                              height: 170,
                               fit: BoxFit.contain,
                               onAllFailed: () {
-                                return CustomPaint(
-                                  size: const Size(150, 180),
-                                  painter: _EggPainter(crackDay: profile.eggCrackDay),
+                                return _buildMascotFallback(
+                                  icon: Icons.egg_alt_rounded,
+                                  size: 150,
+                                  subtitle: '알 이미지를 불러오는 중이야',
+                                  palette: palette,
                                 );
                               },
                             ),
@@ -575,8 +837,8 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
                         : _buildAssetWithFallback(
                             base: base,
                             candidates: candidates,
-                            width: 200,
-                            height: 200,
+                            width: 180,
+                            height: 180,
                             fit: BoxFit.contain,
                             onAllFailed: () {
                               return _buildMascotFallback(
@@ -618,34 +880,8 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
     );
   }
 
-  Widget _buildGaugeCard(MascotProfile profile) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '털 성장 게이지',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(value: profile.furGrowthGauge / 100),
-            const SizedBox(height: 6),
-            Text(
-              '${profile.furGrowthGauge}% / 100%',
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildDailyQuestionCard(MascotProfile profile) {
-    final dayIndex = profile.eggCrackDay.clamp(0, _eggDailyQuestions.length - 1);
-    final question = _eggDailyQuestions[dayIndex];
+    final question = _resolveAdaptiveEggQuestion(profile);
     final answeredToday = _isTodayQuestionAnswered;
 
     return Card(
@@ -670,31 +906,22 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
             else
               Column(
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        _submitDailyEggAnswer(
-                          question: question,
-                          choosePositive: true,
-                        );
-                      },
-                      child: Text(question.positiveLabel),
+                  for (var i = 0; i < question.options.length; i++) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          _submitDailyEggAnswer(
+                            question: question,
+                            selectedOption: question.options[i],
+                          );
+                        },
+                        child: Text(question.options[i].label),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        _submitDailyEggAnswer(
-                          question: question,
-                          choosePositive: false,
-                        );
-                      },
-                      child: Text(question.negativeLabel),
-                    ),
-                  ),
+                    if (i != question.options.length - 1)
+                      const SizedBox(height: 8),
+                  ],
                 ],
               ),
           ],
@@ -711,9 +938,9 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
     required MascotThemePalette palette,
   }) {
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         child: Column(
           children: [
             Row(
@@ -1166,7 +1393,7 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
       );
       _spawnBurst(icon: Icons.favorite, color: palette.emotionHot, count: 8);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('쓰다듬기 성공! 게이지 +15% (쿨타임 10분)')),
+        const SnackBar(content: Text('쓰다듬기 성공! 게이지 +4% (쿨타임 1시간)')),
       );
     } else {
       _setForcedVisual(
@@ -1204,7 +1431,7 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
       _clearForcedVisual();
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('밥주기 성공! 냠냠 → 포만 완료')));
+      ).showSnackBar(const SnackBar(content: Text('밥주기 성공! 게이지 +8% (쿨타임 6시간)')));
     } else {
       _setForcedVisual(
         _HubVisualState.pouty,
@@ -1212,7 +1439,7 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
       );
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('밥주기는 2시간 쿨타임입니다.')));
+      ).showSnackBar(const SnackBar(content: Text('밥주기는 6시간 쿨타임입니다.')));
     }
   }
 
@@ -1372,7 +1599,7 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
           title: const Text('부화 완료!'),
           content: _buildAssetWithFallback(
             base: 'assets/images/eggs',
-            candidates: const ['egg_hatch.png'],
+            candidates: const ['egg_6.png', 'egg_5.png'],
             width: 220,
             height: 220,
             fit: BoxFit.contain,
@@ -1432,7 +1659,7 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
       return Duration.zero;
     }
     final remain =
-        const Duration(minutes: 10) - _now.difference(profile.lastPetTime!);
+        const Duration(hours: 1) - _now.difference(profile.lastPetTime!);
     return remain.isNegative ? Duration.zero : remain;
   }
 
@@ -1441,11 +1668,11 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
       return Duration.zero;
     }
     final remain =
-        const Duration(hours: 2) - _now.difference(profile.lastFeedTime!);
+        const Duration(hours: 6) - _now.difference(profile.lastFeedTime!);
     return remain.isNegative ? Duration.zero : remain;
   }
 
-  Future<void> _openTodayQuestion() async {
+  Future<void> openTodayQuestion() async {
     final profile = ref.read(mascotProfileProvider).valueOrNull;
     if (profile == null || profile.currentStage != MascotStage.egg) {
       if (!mounted) {
@@ -1469,40 +1696,48 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
       return;
     }
 
-    final dayIndex = profile.eggCrackDay.clamp(0, _eggDailyQuestions.length - 1);
-    final question = _eggDailyQuestions[dayIndex];
+    final question = _resolveAdaptiveEggQuestion(profile);
 
-    final choosePositive = await showDialog<bool>(
+    final selectedOption = await showDialog<_AdaptiveEggOption>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           title: Text('오늘의 질문 · ${profile.eggCrackDay + 1}/7'),
-          content: Text(question.question),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(question.question),
+              const SizedBox(height: 12),
+              for (final option in question.options) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(option),
+                    child: Text(option.label),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('닫기'),
-            ),
-            OutlinedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(question.negativeLabel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(question.positiveLabel),
             ),
           ],
         );
       },
     );
 
-    if (choosePositive == null) {
+    if (selectedOption == null) {
       return;
     }
 
     await _submitDailyEggAnswer(
       question: question,
-      choosePositive: choosePositive,
+      selectedOption: selectedOption,
     );
   }
 
@@ -1543,8 +1778,8 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
   }
 
   Future<void> _submitDailyEggAnswer({
-    required _EggDailyQuestion question,
-    required bool choosePositive,
+    required _AdaptiveEggQuestion question,
+    required _AdaptiveEggOption selectedOption,
   }) async {
     if (await _answeredDailyQuestionToday()) {
       if (!mounted) {
@@ -1571,21 +1806,16 @@ class _MascotHubScreenState extends ConsumerState<MascotHubScreen> {
           DailyRecord(
             recordDate: recordDate,
             slotType: slot,
-            moodLevel: choosePositive ? 4 : 2,
+            moodLevel: 3,
             questionText: question.question,
-            userAnswer: choosePositive
-                ? question.positiveLabel
-                : question.negativeLabel,
+            userAnswer: selectedOption.label,
             createdAt: now,
           ),
         );
 
     await ref
         .read(mascotProfileProvider.notifier)
-        .submitDailyEggAnswer(
-          axis: question.axis,
-          choosePositive: choosePositive,
-        );
+        .submitDailyEggAnswer(payload: selectedOption.payload);
 
     HapticFeedback.mediumImpact();
     await _syncTodayQuestionStatus();
@@ -1786,96 +2016,6 @@ class _BrushingMissionDialogState extends State<_BrushingMissionDialog> {
         _particles.removeAt(0);
       }
     });
-  }
-}
-
-class _EggPainter extends CustomPainter {
-  const _EggPainter({required this.crackDay});
-
-  final int crackDay;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-    final eggPaint = Paint()..color = const Color(0xFFFFF5DD);
-    final strokePaint = Paint()
-      ..color = const Color(0xFFD8C8A5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
-    final eggPath = Path()
-      ..moveTo(size.width * 0.5, size.height * 0.06)
-      ..quadraticBezierTo(
-        size.width * 0.93,
-        size.height * 0.2,
-        size.width * 0.88,
-        size.height * 0.62,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.8,
-        size.height * 0.95,
-        size.width * 0.5,
-        size.height * 0.96,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.2,
-        size.height * 0.95,
-        size.width * 0.12,
-        size.height * 0.62,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.07,
-        size.height * 0.2,
-        size.width * 0.5,
-        size.height * 0.06,
-      );
-
-    canvas.drawShadow(eggPath, Colors.black.withValues(alpha: 0.18), 10, false);
-    canvas.drawPath(eggPath, eggPaint);
-    canvas.drawPath(eggPath, strokePaint);
-
-    final crackPaint = Paint()
-      ..color = const Color(0xFF8E7C61)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round;
-
-    final intensity = crackDay.clamp(0, 7);
-    for (var i = 0; i < intensity; i++) {
-      final t = (i + 1) / 8;
-      final x = size.width * (0.25 + 0.5 * t);
-      final y = size.height * (0.2 + 0.6 * t);
-
-      final crack = Path()
-        ..moveTo(x - 8, y - 6)
-        ..lineTo(x - 2, y + 3)
-        ..lineTo(x + 5, y - 4)
-        ..lineTo(x + 10, y + 6);
-
-      canvas.drawPath(crack, crackPaint);
-    }
-
-    final dayTextPainter = TextPainter(
-      text: TextSpan(
-        text: '$crackDay/7',
-        style: const TextStyle(
-          color: Color(0xFF7A6B52),
-          fontSize: 22,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: rect.width);
-
-    dayTextPainter.paint(
-      canvas,
-      Offset((size.width - dayTextPainter.width) / 2, size.height * 0.42),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _EggPainter oldDelegate) {
-    return oldDelegate.crackDay != crackDay;
   }
 }
 
