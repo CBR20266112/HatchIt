@@ -12,6 +12,29 @@ enum _ArcadeGame { keycap, stealthPhone, catCombo }
 
 typedef _RewardFn = Future<void> Function({int exp, int furBalls, int keycaps});
 
+const _arcadeMascotBase = 'assets/images/mascots/1';
+
+Widget _buildArcadeMascotAsset({
+  required List<String> candidates,
+  double width = 88,
+  double height = 88,
+}) {
+  Widget buildAt(int index) {
+    if (index >= candidates.length) {
+      return const Icon(Icons.pets_rounded, size: 72);
+    }
+    return Image.asset(
+      '$_arcadeMascotBase/${candidates[index]}',
+      width: width,
+      height: height,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) => buildAt(index + 1),
+    );
+  }
+
+  return buildAt(0);
+}
+
 class CampusMiniGameScreen extends ConsumerWidget {
   const CampusMiniGameScreen({super.key});
 
@@ -225,6 +248,7 @@ class _KeycapGamePageState extends State<_KeycapGamePage> {
   late List<_KeycapTileState> _tiles;
   int _furSession = 0;
   int _keycapSession = 0;
+  bool _showKeycapBite = false;
 
   @override
   void initState() {
@@ -242,6 +266,29 @@ class _KeycapGamePageState extends State<_KeycapGamePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('이번 판 누적: 털뭉치 +$_furSession · 희귀 키캡 +$_keycapSession'),
+            const SizedBox(height: 10),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    _buildArcadeMascotAsset(
+                      candidates: _showKeycapBite
+                          ? const ['keycap_bite.png', 'action_typing.png']
+                          : const ['typing.png', 'action_typing.png'],
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _showKeycapBite
+                            ? '획득 성공! 키캡 물기 연출'
+                            : '탭/플릭으로 키캡을 뽑아보세요.',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             Expanded(
               child: GridView.builder(
@@ -324,9 +371,19 @@ class _KeycapGamePageState extends State<_KeycapGamePage> {
       );
       tile.turns = (_random.nextDouble() - 0.5) * 0.6;
       _furSession += fur;
+      _showKeycapBite = true;
       if (rareDrop) {
         _keycapSession += 1;
       }
+    });
+
+    Future<void>.delayed(const Duration(milliseconds: 900), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _showKeycapBite = false;
+      });
     });
 
     await widget.onReward(exp: exp, furBalls: fur, keycaps: rareDrop ? 1 : 0);
@@ -350,6 +407,7 @@ class _KeycapGamePageState extends State<_KeycapGamePage> {
       _tiles = List<_KeycapTileState>.generate(15, (_) => _KeycapTileState());
       _furSession = 0;
       _keycapSession = 0;
+      _showKeycapBite = false;
     });
   }
 }
@@ -420,6 +478,32 @@ class _StealthPhoneGamePageState extends State<_StealthPhoneGamePage> {
               ],
             ),
             const SizedBox(height: 10),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    _buildArcadeMascotAsset(
+                      candidates: _professorWatching || _warning
+                          ? const ['stealth_alert.png', 'expr_surprised.png']
+                          : _isHolding
+                          ? const ['typing.png', 'action_typing.png']
+                          : const ['idle.png', 'idle_variant.png'],
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _professorWatching || _warning
+                            ? '경고 발동! 손 떼고 가만히!'
+                            : _isHolding
+                            ? '폰 보는 중: 타이핑 모드'
+                            : '잠잠한 타이밍. 길게 눌러 점수 쌓기',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             LinearProgressIndicator(value: _gauge),
             const SizedBox(height: 8),
             Text('스크롤 게이지 ${(100 * _gauge).toStringAsFixed(0)}%'),
@@ -591,6 +675,33 @@ class _CatComboGamePageState extends State<_CatComboGamePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    _buildArcadeMascotAsset(
+                      candidates: _phase == _CatPhase.frenzy
+                          ? const ['butt_up.png', 'view_back.png']
+                          : _phase == _CatPhase.done
+                          ? const ['mission_clear.png', 'jump.png']
+                          : const ['pet_snuggle.png', 'exp_touched_alt.png'],
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _phase == _CatPhase.frenzy
+                            ? '2단계 진입! 고양이가 뒤돌았어요. 궁디팡팡 연타!'
+                            : _phase == _CatPhase.done
+                            ? '게임 완료!'
+                            : '1단계 쓰다듬기로 신뢰를 쌓는 중',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             if (_phase == _CatPhase.trust) ...[
               const Text('1단계: 얼굴/턱을 부드럽게 드래그해서 호감도 100% 만들기 (3초 내외)'),
               const SizedBox(height: 10),

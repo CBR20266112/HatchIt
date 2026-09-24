@@ -66,6 +66,15 @@ class ScheduleListNotifier extends AsyncNotifier<List<Schedule>> {
     await refresh();
   }
 
+  Future<void> deleteSchedule(int id) async {
+    await removeSchedule(id);
+  }
+
+  Future<void> clearAllSchedules() async {
+    await _dao.clearAll();
+    await refresh();
+  }
+
   Future<List<Schedule>> importFromTimetableImagePath({
     required String imagePath,
     required String apiKey,

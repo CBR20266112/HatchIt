@@ -38,6 +38,7 @@ class AppSettingsRepository {
       final loaded = AppSettings(
         localeCode: localeCode,
         themeMode: AppSettings.themeModeFromDb(themeModeRaw),
+        geminiApiKey: (row['gemini_api_key'] as String?) ?? '',
       );
       _memoryFallback = loaded;
       return loaded;
@@ -58,6 +59,7 @@ class AppSettingsRepository {
         'id': 1,
         'locale_code': settings.localeCode,
         'theme_mode': AppSettings.themeModeToDb(settings.themeMode),
+        'gemini_api_key': settings.geminiApiKey,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (_) {
       return;

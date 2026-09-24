@@ -14,6 +14,10 @@ class MascotProfile {
     required this.curFurBalls,
     required this.curKeycaps,
     required this.furGrowthGauge,
+    required this.rhythmScore,
+    required this.executionScore,
+    required this.cognitionScore,
+    required this.energyScore,
     required this.lastPetTime,
     required this.lastFeedTime,
   });
@@ -28,6 +32,10 @@ class MascotProfile {
   final int curFurBalls;
   final int curKeycaps;
   final int furGrowthGauge;
+  final int rhythmScore;
+  final int executionScore;
+  final int cognitionScore;
+  final int energyScore;
   final DateTime? lastPetTime;
   final DateTime? lastFeedTime;
 
@@ -44,6 +52,10 @@ class MascotProfile {
     curFurBalls: 0,
     curKeycaps: 0,
     furGrowthGauge: 0,
+    rhythmScore: 0,
+    executionScore: 0,
+    cognitionScore: 0,
+    energyScore: 0,
     lastPetTime: null,
     lastFeedTime: null,
   );
@@ -59,6 +71,10 @@ class MascotProfile {
     int? curFurBalls,
     int? curKeycaps,
     int? furGrowthGauge,
+    int? rhythmScore,
+    int? executionScore,
+    int? cognitionScore,
+    int? energyScore,
     Object? lastPetTime = _copyWithUnset,
     Object? lastFeedTime = _copyWithUnset,
   }) {
@@ -77,6 +93,10 @@ class MascotProfile {
       curFurBalls: curFurBalls ?? this.curFurBalls,
       curKeycaps: curKeycaps ?? this.curKeycaps,
       furGrowthGauge: furGrowthGauge ?? this.furGrowthGauge,
+      rhythmScore: rhythmScore ?? this.rhythmScore,
+      executionScore: executionScore ?? this.executionScore,
+      cognitionScore: cognitionScore ?? this.cognitionScore,
+      energyScore: energyScore ?? this.energyScore,
       lastPetTime: lastPetTime == _copyWithUnset
           ? this.lastPetTime
           : lastPetTime as DateTime?,
@@ -98,6 +118,10 @@ class MascotProfile {
       'cur_fur_balls': curFurBalls,
       'cur_keycaps': curKeycaps,
       'fur_growth_gauge': furGrowthGauge,
+      'rhythm_score': rhythmScore,
+      'execution_score': executionScore,
+      'cognition_score': cognitionScore,
+      'energy_score': energyScore,
       'last_pet_time': lastPetTime?.toIso8601String(),
       'last_feed_time': lastFeedTime?.toIso8601String(),
     };
@@ -115,6 +139,10 @@ class MascotProfile {
       curFurBalls: (map['cur_fur_balls'] as int?) ?? 0,
       curKeycaps: (map['cur_keycaps'] as int?) ?? 0,
       furGrowthGauge: (map['fur_growth_gauge'] as int?) ?? 0,
+      rhythmScore: (map['rhythm_score'] as int?) ?? 0,
+      executionScore: (map['execution_score'] as int?) ?? 0,
+      cognitionScore: (map['cognition_score'] as int?) ?? 0,
+      energyScore: (map['energy_score'] as int?) ?? 0,
       lastPetTime: DateTime.tryParse((map['last_pet_time'] as String?) ?? ''),
       lastFeedTime: DateTime.tryParse((map['last_feed_time'] as String?) ?? ''),
     );
@@ -125,13 +153,14 @@ class MascotProfile {
       case MascotStage.egg:
         return 'EGG';
       case MascotStage.hatched:
-        return 'HATCHED';
+        return 'MASCOT';
     }
   }
 
   static MascotStage _stageFromDb(String value) {
     switch (value) {
       case 'HATCHED':
+      case 'MASCOT':
         return MascotStage.hatched;
       case 'EGG':
       default:

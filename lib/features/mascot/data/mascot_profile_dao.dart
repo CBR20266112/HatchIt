@@ -13,13 +13,17 @@ class MascotProfileDao {
     id: 1,
     currentStage: MascotStage.egg,
     eggCrackDay: 0,
-    speciesId: 1,
+    speciesId: null,
     equippedTool: null,
     equippedHat: null,
-    expPlumBlossom: 120,
-    curFurBalls: 50,
-    curKeycaps: 3,
+    expPlumBlossom: 0,
+    curFurBalls: 0,
+    curKeycaps: 0,
     furGrowthGauge: 0,
+    rhythmScore: 0,
+    executionScore: 0,
+    cognitionScore: 0,
+    energyScore: 0,
     lastPetTime: null,
     lastFeedTime: null,
   );
@@ -62,6 +66,25 @@ class MascotProfileDao {
       await db.insert(
         _table,
         profile.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (_) {
+      return;
+    }
+  }
+
+  Future<void> resetProfile() async {
+    _memoryProfile = MascotProfile.defaults.copyWith(speciesId: null);
+    if (kIsWeb) {
+      return;
+    }
+
+    try {
+      final db = await _appDatabase.database;
+      await db.delete(_table);
+      await db.insert(
+        _table,
+        _memoryProfile.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     } catch (_) {

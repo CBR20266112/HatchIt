@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,6 +10,49 @@ import '../schedule_controller.dart';
 import 'schedule_form_dialog.dart';
 
 enum _TimetableViewMode { weekly, monthly }
+
+enum _TimetableMascotState {
+  studyBurn,
+  classNodding,
+  reading,
+  campusWalk,
+  waving,
+}
+
+const _timetableMascotBase = 'assets/images/mascots/1';
+
+const Map<_TimetableMascotState, List<String>> _timetableMascotCandidates = {
+  _TimetableMascotState.studyBurn: ['study_burn.png', 'action_study.png'],
+  _TimetableMascotState.classNodding: ['class_nodding.png', 'action_idea.png'],
+  _TimetableMascotState.reading: ['reading.png', 'action_study.png'],
+  _TimetableMascotState.campusWalk: ['campus_walk.png', 'action_travel.png'],
+  _TimetableMascotState.waving: [
+    'waving.png',
+    'waving_alt.png',
+    'action_wave.png',
+  ],
+};
+
+Widget _buildTimetableMascotAsset({
+  required List<String> candidates,
+  required double width,
+  required double height,
+}) {
+  Widget buildAt(int index) {
+    if (index >= candidates.length) {
+      return const Icon(Icons.pets_rounded, size: 72);
+    }
+    return Image.asset(
+      '$_timetableMascotBase/${candidates[index]}',
+      width: width,
+      height: height,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) => buildAt(index + 1),
+    );
+  }
+
+  return buildAt(0);
+}
 
 class TimetableScreen extends ConsumerStatefulWidget {
   const TimetableScreen({super.key});
@@ -22,10 +67,13 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
   _TimetableViewMode _mode = _TimetableViewMode.weekly;
 
   bool _isImporting = false;
+  _TimetableMascotState? _forcedMascotState;
+  Timer? _mascotTimer;
 
   @override
   void dispose() {
     _apiKeyController.dispose();
+    _mascotTimer?.cancel();
     super.dispose();
   }
 
@@ -41,6 +89,7 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
           final effectiveSchedules = schedules.isEmpty
               ? _mockSchedules
               : schedules;
+          final mascotState = _resolveTimetableMascotState(effectiveSchedules);
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
@@ -71,6 +120,8 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              _buildMascotStatusBanner(mascotState),
               const SizedBox(height: 12),
               SegmentedButton<_TimetableViewMode>(
                 segments: const [
@@ -231,33 +282,42 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
                           left: left,
                           width: dayWidth - 8,
                           height: height.clamp(36, 220),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: blockColor,
+                          child: Material(
+                            color: blockColor,
+                            borderRadius: BorderRadius.circular(10),
+                            child: InkWell(
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.7),
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  schedule.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 12,
+                              onTap: () {
+                                _openScheduleDetailDialog(schedule);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.7),
                                   ),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${schedule.startTime}~${schedule.endTime}',
-                                  style: const TextStyle(fontSize: 11),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      schedule.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${schedule.startTime}~${schedule.endTime}',
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         );
@@ -426,6 +486,91 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
     );
   }
 
+  _TimetableMascotState _resolveTimetableMascotState(List<Schedule> schedules) {
+    if (_forcedMascotState != null) {
+      return _forcedMascotState!;
+    }
+
+    if (_isClassInProgress(schedules)) {
+      final now = DateTime.now();
+      return now.minute.isEven
+          ? _TimetableMascotState.studyBurn
+          : _TimetableMascotState.classNodding;
+    }
+
+    final now = DateTime.now();
+    return now.minute.isEven
+        ? _TimetableMascotState.reading
+        : _TimetableMascotState.campusWalk;
+  }
+
+  bool _isClassInProgress(List<Schedule> schedules) {
+    final now = DateTime.now();
+    for (final schedule in schedules) {
+      if (schedule.dayOfWeek != now.weekday) {
+        continue;
+      }
+      final start = _toMinutes(schedule.startTime);
+      final end = _toMinutes(schedule.endTime);
+      final current = now.hour * 60 + now.minute;
+      if (current >= start && current < end) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Widget _buildMascotStatusBanner(_TimetableMascotState state) {
+    final labels = {
+      _TimetableMascotState.studyBurn: '수업 집중 모드',
+      _TimetableMascotState.classNodding: '수업 끄덕끄덕 모드',
+      _TimetableMascotState.reading: '공강 독서 모드',
+      _TimetableMascotState.campusWalk: '공강 캠퍼스 산책 모드',
+      _TimetableMascotState.waving: '일정 등록 성공!',
+    };
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            _buildTimetableMascotAsset(
+              candidates: _timetableMascotCandidates[state]!,
+              width: 92,
+              height: 92,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                labels[state]!,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _setTemporaryMascotState(
+    _TimetableMascotState state,
+    Duration duration,
+  ) {
+    _mascotTimer?.cancel();
+    setState(() {
+      _forcedMascotState = state;
+    });
+    _mascotTimer = Timer(duration, () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _forcedMascotState = null;
+      });
+    });
+  }
+
   Future<void> _openQuickActions() async {
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -541,6 +686,67 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
     );
   }
 
+  Future<void> _openScheduleDetailDialog(Schedule schedule) async {
+    final confirmedDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(schedule.title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${_dayLabelFull(schedule.dayOfWeek)} ${schedule.startTime} ~ ${schedule.endTime}',
+              ),
+              const SizedBox(height: 8),
+              Text(schedule.location?.trim().isNotEmpty == true
+                  ? schedule.location!
+                  : '장소/메모 없음'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('닫기'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
+              child: const Text('삭제'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmedDelete != true || !mounted) {
+      return;
+    }
+
+    if (schedule.id == null || schedule.id! < 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('샘플 일정은 삭제할 수 없어요.')));
+      return;
+    }
+
+    await ref.read(scheduleListProvider.notifier).deleteSchedule(schedule.id!);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('일정이 삭제되었습니다.')));
+  }
+
   Future<void> _openScheduleForm({Schedule? initial}) async {
     final result = await showDialog<Schedule>(
       context: context,
@@ -553,6 +759,16 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
 
     if (result.id == null) {
       await ref.read(scheduleListProvider.notifier).addSchedule(result);
+      if (!mounted) {
+        return;
+      }
+      _setTemporaryMascotState(
+        _TimetableMascotState.waving,
+        const Duration(milliseconds: 1600),
+      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('새 일정 등록 완료! 삼순이가 반겨요.')));
     } else {
       await ref.read(scheduleListProvider.notifier).updateSchedule(result);
     }
@@ -626,6 +842,27 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
         return '2시간 전';
       default:
         return '$minutes분 전';
+    }
+  }
+
+  String _dayLabelFull(int value) {
+    switch (value) {
+      case 1:
+        return '월요일';
+      case 2:
+        return '화요일';
+      case 3:
+        return '수요일';
+      case 4:
+        return '목요일';
+      case 5:
+        return '금요일';
+      case 6:
+        return '토요일';
+      case 7:
+        return '일요일';
+      default:
+        return '요일 미정';
     }
   }
 

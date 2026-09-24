@@ -177,6 +177,21 @@ class ScheduleDao {
     }
   }
 
+  Future<void> clearAll() async {
+    _memorySchedules.clear();
+    _memoryNextId = 1;
+    if (kIsWeb) {
+      return;
+    }
+
+    try {
+      final db = await _appDatabase.database;
+      await db.delete(_table);
+    } catch (_) {
+      return;
+    }
+  }
+
   Future<List<Schedule>> batchInsert(List<Schedule> schedules) async {
     if (schedules.isEmpty) {
       return const [];

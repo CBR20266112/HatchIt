@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database_provider.dart';
 import '../data/mascot_profile_dao.dart';
 import '../domain/mascot_profile.dart';
+import '../domain/mascot_species.dart';
 
 final mascotProfileDaoProvider = Provider<MascotProfileDao>((ref) {
   return MascotProfileDao(ref.watch(appDatabaseProvider));
@@ -12,6 +13,8 @@ final mascotProfileProvider =
     AsyncNotifierProvider<MascotProfileNotifier, MascotProfile>(
       MascotProfileNotifier.new,
     );
+
+enum PersonalityAxis { rhythm, execution, cognition, energy }
 
 class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
   MascotProfileDao get _dao => ref.read(mascotProfileDaoProvider);
@@ -79,6 +82,70 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
     state = AsyncData(next);
   }
 
+  Future<void> submitDailyEggAnswer({
+    required PersonalityAxis axis,
+    required bool choosePositive,
+  }) async {
+    final current = state.valueOrNull ?? await _dao.getProfile();
+    if (current.currentStage != MascotStage.egg) {
+      return;
+    }
+
+    var rhythmScore = current.rhythmScore;
+    var executionScore = current.executionScore;
+    var cognitionScore = current.cognitionScore;
+    var energyScore = current.energyScore;
+
+    switch (axis) {
+      case PersonalityAxis.rhythm:
+        if (choosePositive) {
+          rhythmScore += 1;
+        }
+        break;
+      case PersonalityAxis.execution:
+        if (choosePositive) {
+          executionScore += 1;
+        }
+        break;
+      case PersonalityAxis.cognition:
+        if (choosePositive) {
+          cognitionScore += 1;
+        }
+        break;
+      case PersonalityAxis.energy:
+        if (choosePositive) {
+          energyScore += 1;
+        }
+        break;
+    }
+
+    final nextCrackDay = (current.eggCrackDay + 1).clamp(0, 7);
+    var next = current.copyWith(
+      eggCrackDay: nextCrackDay,
+      rhythmScore: rhythmScore,
+      executionScore: executionScore,
+      cognitionScore: cognitionScore,
+      energyScore: energyScore,
+      expPlumBlossom: current.expPlumBlossom + 20,
+    );
+
+    if (nextCrackDay >= 7) {
+      final speciesId = MascotSpeciesDefinition.calculateSpeciesId(
+        isNight: rhythmScore >= 2,
+        isBurst: executionScore >= 2,
+        isText: cognitionScore >= 2,
+        isActive: energyScore >= 2,
+      );
+      next = next.copyWith(
+        currentStage: MascotStage.hatched,
+        speciesId: speciesId,
+      );
+    }
+
+    await _dao.saveProfile(next);
+    state = AsyncData(next);
+  }
+
   Future<int> completeBrushing({required int strokeCount}) async {
     final current = state.valueOrNull ?? await _dao.getProfile();
     final reward = (strokeCount ~/ 8).clamp(1, 25);
@@ -134,6 +201,11 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
     state = AsyncData(next);
   }
 
+  Future<void> resetForAppDataClear() async {
+    await _dao.resetProfile();
+    await refresh();
+  }
+
   Future<void> developerResetToEgg({bool resetEconomy = false}) async {
     final current = state.valueOrNull ?? await _dao.getProfile();
     final next = current.copyWith(
@@ -143,6 +215,10 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
       equippedTool: null,
       equippedHat: null,
       furGrowthGauge: 0,
+      rhythmScore: 0,
+      executionScore: 0,
+      cognitionScore: 0,
+      energyScore: 0,
       lastPetTime: null,
       lastFeedTime: null,
       expPlumBlossom: resetEconomy ? 0 : current.expPlumBlossom,

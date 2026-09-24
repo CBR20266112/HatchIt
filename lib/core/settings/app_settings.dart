@@ -4,23 +4,28 @@ class AppSettings {
   const AppSettings({
     required this.localeCode,
     required this.themeMode,
+    required this.geminiApiKey,
   });
 
   final String localeCode;
   final ThemeMode themeMode;
+  final String geminiApiKey;
 
   static const AppSettings defaults = AppSettings(
     localeCode: 'ko',
     themeMode: ThemeMode.system,
+    geminiApiKey: '',
   );
 
   AppSettings copyWith({
     String? localeCode,
     ThemeMode? themeMode,
+    String? geminiApiKey,
   }) {
     return AppSettings(
       localeCode: localeCode ?? this.localeCode,
       themeMode: themeMode ?? this.themeMode,
+      geminiApiKey: geminiApiKey ?? this.geminiApiKey,
     );
   }
 

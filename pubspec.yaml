@@ -90,6 +90,7 @@ flutter:
     - assets/images/mascots/14/
     - assets/images/mascots/15/
     - assets/images/mascots/16/
+    - assets/images/eggs/
     - assets/images/ui/
 
   # To add assets to your application, add an assets section, like this:
