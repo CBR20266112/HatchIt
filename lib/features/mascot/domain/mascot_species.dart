@@ -215,7 +215,7 @@ class MascotSpeciesDefinition {
       id: 7,
       key: 'hamster',
       name: '햄스터',
-      nickname: '찌라',
+      nickname: '해찌',
       traitCode: '1111',
       rhythm: MascotRhythm.night,
       execution: MascotExecution.burst,

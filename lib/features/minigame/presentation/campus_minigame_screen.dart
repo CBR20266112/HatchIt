@@ -12,9 +12,8 @@ enum _ArcadeGame { keycap, stealthPhone, catCombo }
 
 typedef _RewardFn = Future<void> Function({int exp, int furBalls, int keycaps});
 
-const _arcadeMascotBase = 'assets/images/mascots/1';
-
 Widget _buildArcadeMascotAsset({
+  required String basePath,
   required List<String> candidates,
   double width = 88,
   double height = 88,
@@ -24,7 +23,7 @@ Widget _buildArcadeMascotAsset({
       return const Icon(Icons.pets_rounded, size: 72);
     }
     return Image.asset(
-      '$_arcadeMascotBase/${candidates[index]}',
+      '$basePath/${candidates[index]}',
       width: width,
       height: height,
       fit: BoxFit.contain,
@@ -68,6 +67,9 @@ class _CampusMiniGameScreenState extends ConsumerState<CampusMiniGameScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final mascotProfile = ref.watch(mascotProfileProvider);
+    final mascotBasePath =
+        'assets/images/mascots/${mascotProfile.valueOrNull?.speciesId ?? 1}';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
@@ -94,7 +96,7 @@ class _CampusMiniGameScreenState extends ConsumerState<CampusMiniGameScreen> {
               subtitle: '탭/플릭 + 3% 희귀 키캡',
               icon: Icons.keyboard_outlined,
               color: const Color(0xFF5C6BC0),
-              onTap: () => _openGame(_ArcadeGame.keycap),
+              onTap: () => _openGame(_ArcadeGame.keycap, mascotBasePath),
               isLocked: _isGameLocked(_ArcadeGame.keycap),
               cooldownLabel: _cooldownLabel(_ArcadeGame.keycap),
             ),
@@ -103,7 +105,7 @@ class _CampusMiniGameScreenState extends ConsumerState<CampusMiniGameScreen> {
               subtitle: '롱터치 + 랜덤 경고 회피',
               icon: Icons.smartphone_outlined,
               color: const Color(0xFF26A69A),
-              onTap: () => _openGame(_ArcadeGame.stealthPhone),
+              onTap: () => _openGame(_ArcadeGame.stealthPhone, mascotBasePath),
               isLocked: _isGameLocked(_ArcadeGame.stealthPhone),
               cooldownLabel: _cooldownLabel(_ArcadeGame.stealthPhone),
             ),
@@ -112,7 +114,7 @@ class _CampusMiniGameScreenState extends ConsumerState<CampusMiniGameScreen> {
               subtitle: '3초 쓰다듬기 + 5초 연타',
               icon: Icons.pets_outlined,
               color: const Color(0xFFFFA726),
-              onTap: () => _openGame(_ArcadeGame.catCombo),
+              onTap: () => _openGame(_ArcadeGame.catCombo, mascotBasePath),
               isLocked: _isGameLocked(_ArcadeGame.catCombo),
               cooldownLabel: _cooldownLabel(_ArcadeGame.catCombo),
             ),
@@ -122,7 +124,7 @@ class _CampusMiniGameScreenState extends ConsumerState<CampusMiniGameScreen> {
     );
   }
 
-  Future<void> _openGame(_ArcadeGame game) async {
+  Future<void> _openGame(_ArcadeGame game, String mascotBasePath) async {
     final remain = _remainingCooldown(game);
     if (remain > Duration.zero) {
       final mm = remain.inMinutes.toString().padLeft(2, '0');
@@ -143,6 +145,7 @@ class _CampusMiniGameScreenState extends ConsumerState<CampusMiniGameScreen> {
           MaterialPageRoute(
             fullscreenDialog: true,
             builder: (_) => _KeycapGamePage(
+              mascotBasePath: mascotBasePath,
               onReward: ({exp = 0, furBalls = 0, keycaps = 0}) async {
                 await ref
                     .read(mascotProfileProvider.notifier)
@@ -160,6 +163,7 @@ class _CampusMiniGameScreenState extends ConsumerState<CampusMiniGameScreen> {
           MaterialPageRoute(
             fullscreenDialog: true,
             builder: (_) => _StealthPhoneGamePage(
+              mascotBasePath: mascotBasePath,
               onReward: ({exp = 0, furBalls = 0, keycaps = 0}) async {
                 await ref
                     .read(mascotProfileProvider.notifier)
@@ -177,6 +181,7 @@ class _CampusMiniGameScreenState extends ConsumerState<CampusMiniGameScreen> {
           MaterialPageRoute(
             fullscreenDialog: true,
             builder: (_) => _CatComboGamePage(
+              mascotBasePath: mascotBasePath,
               onReward: ({exp = 0, furBalls = 0, keycaps = 0}) async {
                 await ref
                     .read(mascotProfileProvider.notifier)
@@ -319,8 +324,12 @@ class _PressableScaleState extends State<_PressableScale> {
 }
 
 class _KeycapGamePage extends StatefulWidget {
-  const _KeycapGamePage({required this.onReward});
+  const _KeycapGamePage({
+    required this.mascotBasePath,
+    required this.onReward,
+  });
 
+  final String mascotBasePath;
   final _RewardFn onReward;
 
   @override
@@ -357,6 +366,7 @@ class _KeycapGamePageState extends State<_KeycapGamePage> {
                 child: Row(
                   children: [
                     _buildArcadeMascotAsset(
+                      basePath: widget.mascotBasePath,
                       candidates: _showKeycapBite
                           ? const ['keycap_bite.png', 'action_typing.png']
                           : const ['typing.png', 'action_typing.png'],
@@ -503,8 +513,12 @@ class _KeycapTileState {
 }
 
 class _StealthPhoneGamePage extends StatefulWidget {
-  const _StealthPhoneGamePage({required this.onReward});
+  const _StealthPhoneGamePage({
+    required this.mascotBasePath,
+    required this.onReward,
+  });
 
+  final String mascotBasePath;
   final _RewardFn onReward;
 
   @override
@@ -568,6 +582,7 @@ class _StealthPhoneGamePageState extends State<_StealthPhoneGamePage> {
                 child: Row(
                   children: [
                     _buildArcadeMascotAsset(
+                      basePath: widget.mascotBasePath,
                       candidates: _professorWatching || _warning
                           ? const ['stealth_alert.png', 'expr_surprised.png']
                           : _isHolding
@@ -714,8 +729,12 @@ class _StealthPhoneGamePageState extends State<_StealthPhoneGamePage> {
 enum _CatPhase { trust, frenzy, done }
 
 class _CatComboGamePage extends StatefulWidget {
-  const _CatComboGamePage({required this.onReward});
+  const _CatComboGamePage({
+    required this.mascotBasePath,
+    required this.onReward,
+  });
 
+  final String mascotBasePath;
   final _RewardFn onReward;
 
   @override
@@ -765,6 +784,7 @@ class _CatComboGamePageState extends State<_CatComboGamePage> {
                 child: Row(
                   children: [
                     _buildArcadeMascotAsset(
+                      basePath: widget.mascotBasePath,
                       candidates: _phase == _CatPhase.frenzy
                           ? const ['butt_up.png', 'view_back.png']
                           : _phase == _CatPhase.done
