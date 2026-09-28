@@ -20,8 +20,6 @@ enum _MissionMascotState {
   sadTeary,
 }
 
-const _missionMascotBase = 'assets/images/mascots/1';
-
 const Map<_MissionMascotState, List<String>> _missionMascotCandidates = {
   _MissionMascotState.alarmPanic: ['alarm_panic.png', 'expr_surprised.png'],
   _MissionMascotState.wakeDrowsy: [
@@ -34,13 +32,16 @@ const Map<_MissionMascotState, List<String>> _missionMascotCandidates = {
   _MissionMascotState.sadTeary: ['expr_sad_teary.png', 'exp_teary.png'],
 };
 
-Widget _buildMissionMascotAsset(List<String> candidates) {
+Widget _buildMissionMascotAsset({
+  required String basePath,
+  required List<String> candidates,
+}) {
   Widget buildAt(int index) {
     if (index >= candidates.length) {
       return const Icon(Icons.pets_rounded, size: 72);
     }
     return Image.asset(
-      '$_missionMascotBase/${candidates[index]}',
+      '$basePath/${candidates[index]}',
       width: 100,
       height: 100,
       fit: BoxFit.contain,
@@ -73,6 +74,9 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final schedulesValue = ref.watch(scheduleListProvider);
+    final mascotProfile = ref.watch(mascotProfileProvider);
+    final mascotBasePath =
+        'assets/images/mascots/${mascotProfile.valueOrNull?.speciesId ?? 1}';
 
     return schedulesValue.when(
       data: (schedules) {
@@ -83,7 +87,7 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
           children: [
             Text('기상 & 미션', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 12),
-            _buildMissionMascotCard(),
+            _buildMissionMascotCard(mascotBasePath),
             const SizedBox(height: 12),
             _buildDismissStatusCard(),
             const SizedBox(height: 12),
@@ -111,7 +115,7 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
     );
   }
 
-  Widget _buildMissionMascotCard() {
+  Widget _buildMissionMascotCard(String mascotBasePath) {
     final labels = {
       _MissionMascotState.alarmPanic: '알람 울림! 지금 미션 시작!',
       _MissionMascotState.wakeDrowsy: '스누즈/미리 끄기 상태',
@@ -128,7 +132,8 @@ class _MissionAlarmScreenState extends ConsumerState<MissionAlarmScreen> {
         child: Row(
           children: [
             _buildMissionMascotAsset(
-              _missionMascotCandidates[_missionMascotState]!,
+              basePath: mascotBasePath,
+              candidates: _missionMascotCandidates[_missionMascotState]!,
             ),
             const SizedBox(width: 12),
             Expanded(

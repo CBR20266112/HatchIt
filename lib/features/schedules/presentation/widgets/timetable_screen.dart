@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../../mascot/presentation/mascot_controller.dart';
 import '../../domain/schedule.dart';
 import '../schedule_controller.dart';
 import 'schedule_form_dialog.dart';
@@ -19,8 +20,6 @@ enum _TimetableMascotState {
   waving,
 }
 
-const _timetableMascotBase = 'assets/images/mascots/1';
-
 const Map<_TimetableMascotState, List<String>> _timetableMascotCandidates = {
   _TimetableMascotState.studyBurn: ['study_burn.png', 'action_study.png'],
   _TimetableMascotState.classNodding: ['class_nodding.png', 'action_idea.png'],
@@ -34,6 +33,7 @@ const Map<_TimetableMascotState, List<String>> _timetableMascotCandidates = {
 };
 
 Widget _buildTimetableMascotAsset({
+  required String basePath,
   required List<String> candidates,
   required double width,
   required double height,
@@ -43,7 +43,7 @@ Widget _buildTimetableMascotAsset({
       return const Icon(Icons.pets_rounded, size: 72);
     }
     return Image.asset(
-      '$_timetableMascotBase/${candidates[index]}',
+      '$basePath/${candidates[index]}',
       width: width,
       height: height,
       fit: BoxFit.contain,
@@ -81,6 +81,9 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final schedulesValue = ref.watch(scheduleListProvider);
+    final mascotProfile = ref.watch(mascotProfileProvider);
+    final mascotBasePath =
+        'assets/images/mascots/${mascotProfile.valueOrNull?.speciesId ?? 1}';
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -117,7 +120,7 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              _buildMascotStatusBanner(mascotState),
+              _buildMascotStatusBanner(mascotState, mascotBasePath),
               const SizedBox(height: 12),
               SegmentedButton<_TimetableViewMode>(
                 segments: const [
@@ -516,7 +519,10 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
     return false;
   }
 
-  Widget _buildMascotStatusBanner(_TimetableMascotState state) {
+  Widget _buildMascotStatusBanner(
+    _TimetableMascotState state,
+    String mascotBasePath,
+  ) {
     final labels = {
       _TimetableMascotState.studyBurn: '수업 집중 모드',
       _TimetableMascotState.classNodding: '수업 끄덕끄덕 모드',
@@ -532,6 +538,7 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
         child: Row(
           children: [
             _buildTimetableMascotAsset(
+              basePath: mascotBasePath,
               candidates: _timetableMascotCandidates[state]!,
               width: 92,
               height: 92,
