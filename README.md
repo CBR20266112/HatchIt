@@ -1,161 +1,212 @@
-# HatchIt
+# HatchIt (해칫) — Developer & Architecture Reference
 
-HatchIt은 사용자의 생활 패턴(공부, 수면, 운동, 식사 등)에 반응해 캐릭터를 성장시키는 Flutter 기반 반려 캐릭터 앱 프로젝트입니다.
-
-- **앱 이름**: HatchIt
-- **패키지명**: `com.hatchit.campus`
-- **기술 스택**: Flutter / Dart
-- **주 타깃 플랫폼**: Android (웹은 개발/미리보기 용도)
+> **브랜치 안내**: 이 `develop` 브랜치는 내부 개발·아키텍처·테스트 명세용입니다.
+> 일반 사용자 소개 페이지는 [`main` 브랜치 README](../../blob/main/README.md)를 참조하세요.
 
 ---
 
-## 1) 프로젝트 목적
+## 🏗️ 프로젝트 아키텍처
 
-이 프로젝트는 단순한 투두 앱이 아니라, 다음 목표를 가진 **학습/개인 프로젝트형 앱**입니다.
-
-1. 습관 데이터를 기록하고,
-2. 캐릭터 반응(표정/행동/상태 변화)으로 피드백을 주며,
-3. 장기적으로 사용자의 자기관리 동기를 높이는 것.
-
----
-
-## 2) 현재 진행 상태
-
-### 완료된 항목
-- Flutter 기본 프로젝트 구조 생성
-- 주요 에셋(마스코트 이미지 세트) 반영
-- 개발 백업 브랜치 생성 및 원격 푸시
-
-### 진행 중 항목
-- 일부 마스코트 이미지(`idle.png`, `grooming.png`)의 고품질 투명화/정제
-  - 자동 누끼 처리로 1차 시도 완료
-  - 잔여 노이즈/경계 품질 이슈로 재정제 필요
-
----
-
-## 3) 브랜치 전략 (중요)
-
-> **원칙: `main`은 안정화용, 개발은 별도 브랜치에서 진행**
-
-### 운영 규칙
-- `main`
-  - 배포/안정화 기준 브랜치
-  - 검증된 커밋만 반영
-- `dev/*` 또는 `backup/*`
-  - 기능 개발, 실험, 중간 백업용
-  - 사용자가 명시적으로 지시하기 전까지 `main` 직접 반영 금지
-
-### 권장 브랜치 네이밍
-- 기능 개발: `dev/feature-<topic>`
-- 버그 수정: `dev/fix-<topic>`
-- 중간 백업: `dev/backup-YYYYMMDD-<topic>`
-
----
-
-## 4) 로컬 개발 환경
-
-이 프로젝트는 고정된 버전 환경을 기준으로 합니다.
-
-- **Flutter**: `3.35.4`
-- **Dart**: `3.9.2`
-
-> 주의: 버전 업그레이드는 호환성 이슈를 만들 수 있으므로, 별도 합의 없이 진행하지 않습니다.
-
----
-
-## 5) 실행 방법
-
-### 5-1. 의존성 설치
-```bash
-cd /home/user/flutter_app
-flutter pub get
 ```
-
-### 5-2. 분석(권장)
-```bash
-cd /home/user/flutter_app
-flutter analyze
-```
-
-### 5-3. 웹 미리보기 (개발 확인용)
-```bash
-cd /home/user/flutter_app
-flutter build web --release
-python3 -m http.server 5060 --directory build/web --bind 0.0.0.0
-```
-
-### 5-4. Android 빌드
-```bash
-cd /home/user/flutter_app
-flutter build apk --release
-```
-
----
-
-## 6) 프로젝트 구조
-
-```text
 flutter_app/
-├─ lib/                      # 앱 소스 코드 (화면, 로직, 상태관리)
-├─ assets/
-│  └─ images/
-│     └─ mascots/            # 마스코트 이미지 리소스
-├─ android/                  # Android 네이티브 설정
-├─ web/                      # 웹 미리보기 관련 설정
-├─ pubspec.yaml              # 의존성/에셋 등록
-└─ README.md                 # 프로젝트 문서
+├── lib/
+│   ├── core/
+│   │   ├── database/          # SQLite DAO (sqflite 2.4)
+│   │   ├── permissions/       # 권한 요청 헬퍼
+│   │   └── settings/          # SettingsController (Riverpod)
+│   └── features/
+│       ├── assistant/         # Gemini AI 비서 서비스
+│       │   └── data/
+│       │       └── gemini_assistant_service.dart
+│       ├── mascot/            # 마스코트 도메인 + 허브 화면
+│       │   ├── domain/
+│       │   │   └── mascot_species.dart   # 16종 MascotSpeciesDefinition
+│       │   └── presentation/
+│       │       ├── mascot_hub_screen.dart
+│       │       └── mascot_controller.dart
+│       ├── schedules/         # 시간표 DAO + 위젯
+│       ├── mission/           # 기상 미션 + 알람
+│       ├── minigame/          # 캠퍼스 오락실 미니게임 3종
+│       ├── daily_records/     # 7일 부화 Q&A
+│       ├── events/            # 이벤트 뱃지
+│       └── home/              # BottomNav Shell
+├── assets/
+│   └── images/
+│       └── mascots/
+│           └── {1..16}/      # 40종 표준 PNG × 16종 = 640장
+└── test/
+    └── features/
+        └── assistant/
+            └── gemini_assistant_service_test.dart
 ```
 
----
+### 핵심 기술 스택
 
-## 7) 에셋 작업 가이드
-
-현재 마스코트 에셋은 품질이 앱 인상에 직접 영향을 줍니다.
-
-- 우선순위
-  1. 캐릭터 경계 깔끔함
-  2. 배경 완전 투명
-  3. 가이드선/텍스트 노이즈 제거
-- 권장 사항
-  - 가능하면 원본 투명 PNG를 확보해서 사용
-  - 자동 처리 결과는 항상 시각 검수 후 반영
+| 영역 | 기술 |
+|------|------|
+| **상태관리** | Riverpod 2.6.1 (`flutter_riverpod`) |
+| **로컬 DB** | sqflite 2.4.2 (SQLite DAO) |
+| **AI 비서** | Google Generative Language v1beta — `gemini-1.5-flash` |
+| **알림/알람** | flutter_local_notifications 18 + android_alarm_manager_plus 4 |
+| **HTTP** | http 1.5.0 (순수 REST, 외부 패키지 최소화) |
+| **국제화** | flutter_localizations + intl 0.20.2 (한국어 기본) |
 
 ---
 
-## 8) 커밋/푸시 규칙
+## 🦎 16종 마스코트 도메인 모델
 
-### 커밋 메시지 예시
-- `feat: 습관 기록 화면 추가`
-- `fix: 캐릭터 상태 전환 버그 수정`
-- `chore: 마스코트 에셋 1차 백업`
-- `docs: README 상세화`
+파일: [`lib/features/mascot/domain/mascot_species.dart`](lib/features/mascot/domain/mascot_species.dart)
 
-### 기본 흐름
+### `MascotSpeciesDefinition` 필드
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `id` | `int` | 1 ~ 16 고유 ID |
+| `key` | `String` | 영문 식별자 (`cat`, `owl`, …) |
+| `name` | `String` | 한국어 동물명 (`고양이`, `부엉이`, …) |
+| `nickname` | `String` | 앱 내 마스코트 닉네임 (`삼순이`, `올리`, …) |
+| `persona` | `String` | AI 비서 시스템 프롬프트용 성격 설명 |
+| `signatureSuffix` | `String` | 말끝 시그니처 말투 (`~냥`, `~부엉`, …) |
+| `alarmDialogue` | `String` | 기상 알람 발화 |
+| `reminderDialogue` | `String` | 마감 리마인더 발화 |
+| `groomingDialogue` | `String` | 빗질(그루밍) 완료 발화 |
+| `rhythm` | `MascotRhythm` | 올빼미형 / 아침형 / 유연형 |
+| `execution` | `MascotExecution` | 계획형 / 즉흥형 / 지속형 |
+
+### 16종 ID 매핑
+
+| ID | 동물명 | 닉네임 | 시그니처 | 카테고리 |
+|----|--------|--------|----------|----------|
+| 1 | 고양이 | 삼순이 | ~냥 | nature |
+| 2 | 부엉이 | 올리 | ~부엉 | service |
+| 3 | 거북이 | 부기 | ~부기 | education |
+| 4 | 비버 | 비비 | ~비비 | nature |
+| 5 | 나무늘보 | 슬로 | ~슬로 | nature |
+| 6 | 판다 | 포포 | ~포포 | nature |
+| 7 | 햄스터 | 해찌 | ~해찌 | nature |
+| 8 | 여우 | 아랑 | ~아랑 | nature |
+| 9 | 다람쥐 | 람이 | ~람이 | nature |
+| 10 | 웰시코기 | 코기 | ~코기 | service |
+| 11 | 바다사자 | 바루 | ~바루 | nature |
+| 12 | 까마귀 | 까미 | ~까미 | bohemian |
+| 13 | 수달 | 다리 | ~다리 | nature |
+| 14 | 토끼 | 라비 | ~라비 | nature |
+| 15 | 코알라 | 알라 | ~알라 | nature |
+| 16 | 오리 | 덕이 | ~덕이 | bohemian |
+
+---
+
+## 🖼️ 40종 표준 에셋 파이프라인 (총 640장)
+
+경로: `assets/images/mascots/{id}/{action}.png`
+규격: **1024×1024 RGBA 투명 PNG**
+
+### 40종 표준 파일명
+
+```
+기본/액션(8): idle, grooming, reading, typing, waving, jump, sleeping, curious_tap
+표정(6):     expr_happy, expr_curious, expr_sleepy, expr_surprised, expr_pouty, expr_sad_teary
+비서(4):     feed_eating, feed_full, groom_sparkle, pet_snuggle
+알람/미션(4): alarm_panic, wake_drowsy, mission_clear, mission_fail
+수업/일정(3): study_burn, class_nodding, campus_walk
+미니게임(5): keycap_bite, stealth_alert, butt_up, particle_fur_1, particle_fur_2
+부화(2):     egg_hatch, hold_furball
+개성(8):     idea_bulb, coffee_sip, peek_box, blanket_cozy, clover_luck,
+             magnify_study, hugging_book, cheer_shout
+```
+
+**검증 결과 (2026-09-29 기준)**: 16종 전원 40/40 **640 / 640장 100% 완성** ✅
+
+---
+
+## 🤖 `GeminiAssistantService` 상세 명세
+
+파일: [`lib/features/assistant/data/gemini_assistant_service.dart`](lib/features/assistant/data/gemini_assistant_service.dart)
+
+### 메서드 시그니처
+
+```dart
+Future<AssistantResponse> ask({
+  required String userInput,
+  required String apiKey,
+  required DateTime now,
+  int? speciesId,   // 마스코트 ID (1~16), null이면 고양이(1) 기본값
+}) async
+```
+
+### 시스템 프롬프트 동적 바인딩
+
+`speciesId`로 `MascotSpeciesDefinition.byId(speciesId ?? 1)`를 조회한 뒤:
+- `species.name` → 마스코트 이름 (`너는 AI 비서 마스코트 '고양이'이다.`)
+- `species.persona` → 성격/페르소나
+- `species.signatureSuffix` → 말끝 말투 규칙 (`반드시 말끝마다 '~냥'을 붙여라`)
+
+### 응답 JSON 스키마
+
+```json
+{
+  "action": "CREATE_SCHEDULE | SET_ALARM | TOGGLE_ALARM | CHAT",
+  "dialogue": "한국어 한 문장 (마스코트 말투 적용)",
+  "mascot_emotion": "waving | study_burn | alarm_panic | expr_happy | ...",
+  "schedule_data": {
+    "title": "수업명 또는 일정명",
+    "day_of_week": 2,         // 1(월)~7(일)
+    "start_time": "14:00",   // 24시간 HH:mm
+    "end_time": "16:00",
+    "color_index": 3          // 0~9
+  },
+  "alarm_data": {
+    "target_time": "08:30",  // 24시간 HH:mm
+    "is_enabled": true
+  }
+}
+```
+
+### API 설정
+
+| 항목 | 값 |
+|------|----|
+| 모델 | `gemini-1.5-flash` |
+| 엔드포인트 | `https://generativelanguage.googleapis.com/v1beta/models` |
+| temperature | `0.2` |
+| topP | `0.9` |
+| responseMimeType | `application/json` |
+
+### API Key 주입 우선순위
+
+1. 앱 내 설정 (`settingsControllerProvider.geminiApiKey`)
+2. 빌드 타임 주입 (`--dart-define=GEMINI_API_KEY=xxx`)
+
+---
+
+## 🧪 로컬 실행 및 테스트
+
+### 단위 테스트 실행
+
 ```bash
-cd /home/user/flutter_app
-git checkout dev/feature-xxx
-git add .
-git commit -m "feat: ..."
-git push -u origin dev/feature-xxx
+# JSON 모델 파싱 / fallback 방어 로직 테스트 (오프라인)
+flutter test test/features/assistant/gemini_assistant_service_test.dart
+
+# Gemini API 라이브 호출 테스트 (키 필요)
+flutter test test/features/assistant/gemini_assistant_service_test.dart \
+  --dart-define=GEMINI_API_KEY=YOUR_GEMINI_KEY
+```
+
+### Android 디바이스 실행
+
+```bash
+flutter run --dart-define=GEMINI_API_KEY=YOUR_GEMINI_KEY
+```
+
+### 웹 서빙 (포트 5060)
+
+```bash
+flutter run -d chrome --web-port=5060 \
+  --dart-define=GEMINI_API_KEY=YOUR_GEMINI_KEY
 ```
 
 ---
 
-## 9) 협업/운영 메모
+## 📝 워크스루 및 작업 히스토리
 
-- `main` 반영은 “안정화 완료” 기준으로만 진행
-- README는 작업 흐름이 바뀔 때마다 같이 업데이트
-- 중요한 리소스 변경(에셋 대량 교체 등)은 백업 브랜치 생성 후 진행
-
----
-
-## 10) 다음 액션 (권장)
-
-1. `idle.png`, `grooming.png` 고품질 소스 재확보
-2. 마스코트 정제본 확정 후 앱 내 반영 테스트
-3. 화면별 QA 체크리스트 작성
-4. 안정화 시점에 `main` 반영
-
----
-
-문의/개선 요청은 이슈나 브랜치 단위로 남겨 관리하는 것을 권장합니다.
+전체 작업 흐름 및 에셋 파이프라인 구축 과정은 [`walkthrough.md`](walkthrough.md)를 참조하세요.

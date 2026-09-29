@@ -1115,11 +1115,14 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
       _isAssistantBusy = true;
     });
 
+    final profile = ref.read(mascotProfileProvider).valueOrNull;
+
     try {
       final response = await _assistantService.ask(
         userInput: userPrompt,
         apiKey: apiKey,
         now: DateTime.now(),
+        speciesId: profile?.speciesId,
       );
       if (!mounted) {
         return;

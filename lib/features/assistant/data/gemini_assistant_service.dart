@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../mascot/domain/mascot_species.dart';
+
 enum AssistantAction { createSchedule, setAlarm, toggleAlarm, chat }
 
 class AssistantScheduleData {
@@ -111,18 +113,24 @@ class GeminiAssistantService {
     required String userInput,
     required String apiKey,
     required DateTime now,
+    int? speciesId,
   }) async {
     final trimmed = userInput.trim();
     if (trimmed.isEmpty) {
       return AssistantResponse.fallback('아직 아무 말도 안 했어!');
     }
 
+    final species = MascotSpeciesDefinition.byId(speciesId ?? 1);
+
     final uri = Uri.parse(
       '$apiEndpointBase/$model:generateContent?key=$apiKey',
     );
 
     final systemPrompt = '''
-너는 대학생 생산성 앱의 고양이 AI 비서다.
+너는 대학생 생산성 앱의 AI 비서 마스코트 '${species.name}'이다.
+성격 및 페르소나: ${species.persona}
+말투 특징: 반드시 말끝마다 '${species.signatureSuffix}'를 자연스럽게 붙여라.
+
 반드시 JSON 하나만 응답한다. 마크다운 코드블록 금지.
 허용 action: CREATE_SCHEDULE, SET_ALARM, TOGGLE_ALARM, CHAT
 
@@ -131,9 +139,11 @@ class GeminiAssistantService {
 2) 기상/알람 시간 설정 요청이면 SET_ALARM
 3) 알람 켜기/끄기 요청이면 TOGGLE_ALARM
 4) 그 외 일반 대화는 CHAT
-5) dialogue는 한국어 한 문장, 귀엽고 짧게
+5) dialogue는 한국어 한 문장, 너의 고유 말투('${species.signatureSuffix}')를 살려 귀엽고 짧게
 6) mascot_emotion은 다음 중 하나 사용: waving, study_burn, alarm_panic, expr_happy, expr_pouty, expr_sad_teary, expr_surprised
-7) 시간이 불명확하면 안전한 기본값 사용 (일정 09:00~10:00, 알람 08:30)
+7) day_of_week는 1(월요일), 2(화요일), 3(수요일), 4(목요일), 5(금요일), 6(토요일), 7(일요일)로 지정
+8) 시간(start_time, end_time, target_time)은 반드시 24시간 형식 "HH:mm"으로 지정
+9) 시간이 불명확하면 안전한 기본값 사용 (일정 09:00~10:00, 알람 08:30)
 
 반환 스키마:
 {
