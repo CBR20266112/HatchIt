@@ -110,7 +110,7 @@ class MascotAssetManager {
       final archive = ZipDecoder().decodeBytes(bytes);
       final targetDir = await getSpeciesDirectory(speciesId);
       if (!await targetDir.exists()) {
-        await targetDir.create(parents: true);
+        await targetDir.create(recursive: true);
       }
 
       for (final file in archive) {
