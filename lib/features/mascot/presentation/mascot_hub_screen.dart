@@ -1421,9 +1421,13 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
         return;
       }
       _showAssistantBubble('응답을 처리하다가 문제가 생겼어. 다시 말해줘!');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('AI 비서 요청 실패: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'AI 비서 연결 실패: 네트워크 상태 또는 API 키를 확인해주세요.',
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
