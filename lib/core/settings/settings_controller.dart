@@ -81,7 +81,7 @@ Future<void> executeFullAppReset(BuildContext context, WidgetRef ref) async {
     await AppDatabase.instance.resetDatabase();
 
     // 2. 다운로드된 마스코트 zip 및 폴더 삭제
-    await MascotAssetManager().clearAll();
+    await MascotAssetManager.clearAll();
 
     // 3. 모든 Riverpod Provider 상태 무효화
     ref.invalidate(settingsControllerProvider);

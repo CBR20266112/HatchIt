@@ -17,6 +17,7 @@ final mascotAssetManagerProvider = Provider<MascotAssetManager>((ref) {
 class MascotAssetManager {
   static final MascotAssetManager instance = MascotAssetManager._();
   MascotAssetManager._();
+  factory MascotAssetManager() => instance;
 
   static const String releaseBaseUrl =
       'https://github.com/CBR20266112/HatchIt/releases/download/v1.0.0-assets';
@@ -141,7 +142,7 @@ class MascotAssetManager {
   }
 
   /// 모든 다운로드된 마스코트 에셋 삭제 (앱 데이터 초기화용)
-  Future<void> clearAll() async {
+  static Future<void> clearAll() async {
     try {
       final appDocDir = await getApplicationDocumentsDirectory();
       final mascotsRoot = Directory(p.join(appDocDir.path, 'mascots'));
