@@ -832,12 +832,85 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
     );
   }
 
+  Widget _buildBrandBadge(MascotProfile profile, MascotThemePalette palette) {
+    final isEgg = profile.currentStage == MascotStage.egg;
+    final species = MascotSpeciesDefinition.byId(profile.speciesId ?? 1);
+
+    Widget imageWidget;
+    if (isEgg) {
+      final eggDay = profile.eggCrackDay.clamp(0, 6);
+      imageWidget = Image.asset(
+        'assets/images/eggs/egg_$eggDay.png',
+        width: 38,
+        height: 38,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const Icon(Icons.egg_alt_rounded, size: 24),
+      );
+    } else {
+      imageWidget = _buildAssetWithFallback(
+        base: species.assetBasePath,
+        candidates: const [
+          'expr_happy.png',
+          'idle.png',
+          'waving.png',
+          'feed_eating.png',
+        ],
+        width: 38,
+        height: 38,
+        fit: BoxFit.cover,
+        localDir: _localSpeciesDir,
+        onAllFailed: () => const Icon(Icons.pets_rounded, size: 24),
+      );
+    }
+
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [
+            palette.primary.withValues(alpha: 0.22),
+            palette.secondary.withValues(alpha: 0.12),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: palette.primary.withValues(alpha: 0.4),
+          width: 1.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: palette.primary.withValues(alpha: 0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Center(
+        child: ClipOval(
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: imageWidget,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFloatingCurrencyBar(
     MascotProfile profile,
     MascotThemePalette palette,
   ) {
+    final isEgg = profile.currentStage == MascotStage.egg;
+    final species = MascotSpeciesDefinition.byId(profile.speciesId ?? 1);
+    final badgeTooltip =
+        isEgg ? 'Day ${profile.eggCrackDay + 1} 알 부화 진행 중' : species.nickname;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: LinearGradient(
@@ -861,25 +934,36 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
           ),
         ],
       ),
-      child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        runSpacing: 8,
-        spacing: 8,
+      child: Row(
         children: [
-          _pillChip(
-            'Plum Blossom EXP ${profile.expPlumBlossom}',
-            Icons.local_florist_outlined,
-            palette.primary,
+          Tooltip(
+            message: badgeTooltip,
+            child: _buildBrandBadge(profile, palette),
           ),
-          _pillChip(
-            'Fur Balls ${profile.curFurBalls}',
-            Icons.blur_circular_outlined,
-            palette.secondary,
-          ),
-          _pillChip(
-            'Keycaps ${profile.curKeycaps}',
-            Icons.keyboard_alt_outlined,
-            palette.accent,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              runSpacing: 6,
+              spacing: 6,
+              children: [
+                _pillChip(
+                  'EXP ${profile.expPlumBlossom}',
+                  Icons.local_florist_outlined,
+                  palette.primary,
+                ),
+                _pillChip(
+                  'Fur ${profile.curFurBalls}',
+                  Icons.blur_circular_outlined,
+                  palette.secondary,
+                ),
+                _pillChip(
+                  'Key ${profile.curKeycaps}',
+                  Icons.keyboard_alt_outlined,
+                  palette.accent,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -963,8 +1047,10 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
               ),
               const SizedBox(width: 8),
               IconButton.filledTonal(
-                tooltip: '삼순이에게 말하기',
-                onPressed: _isAssistantBusy ? null : () => _openAssistantInputSheet(),
+                tooltip: isEgg ? '???에게 말하기' : '${species.nickname}에게 말하기',
+                onPressed: _isAssistantBusy
+                    ? null
+                    : () => _openAssistantInputSheet(profile: profile),
                 icon: _isAssistantBusy
                     ? const SizedBox(
                         width: 18,
@@ -1213,7 +1299,19 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
     );
   }
 
-  Future<void> _openAssistantInputSheet() async {
+  Future<void> _openAssistantInputSheet({MascotProfile? profile}) async {
+    final resolvedProfile =
+        profile ?? ref.read(mascotProfileProvider).asData?.value;
+    final isEgg =
+        resolvedProfile == null ||
+        resolvedProfile.currentStage == MascotStage.egg;
+    final species = resolvedProfile != null
+        ? MascotSpeciesDefinition.byId(resolvedProfile.speciesId ?? 1)
+        : null;
+    final assistantTitle = isEgg
+        ? '???에게 말하기'
+        : '${species?.nickname ?? "마스코트"}에게 말하기';
+
     final controller = TextEditingController();
     final prompt = await showModalBottomSheet<String>(
       context: context,
@@ -1232,7 +1330,7 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '삼순이에게 말하기',
+                assistantTitle,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 10),

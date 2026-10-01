@@ -97,7 +97,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                 hintText: '숫자 8자리 입력',
               ),
               onSubmitted: (value) {
-                Navigator.of(dialogContext).pop(value == '20266112');
+                Navigator.of(dialogContext).pop(value.trim() == '20266112');
               },
             ),
             actions: [
@@ -111,7 +111,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                 onPressed: () {
                   Navigator.of(
                     dialogContext,
-                  ).pop(passwordController.text == '20266112');
+                  ).pop(passwordController.text.trim() == '20266112');
                 },
                 child: const Text('확인'),
               ),
@@ -200,7 +200,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       context: context,
       showDragHandle: true,
       builder: (context) {
-        var showDeveloperOptions = false;
+        var showDeveloperOptions = ref.read(developerModeProvider);
         var isDeveloperBusy = false;
         var wipeEconomyOnReset = false;
         var selectedDeveloperSpeciesId = initialSpeciesId;
@@ -240,6 +240,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                 borderRadius: BorderRadius.circular(10),
                                 onTap: () async {
                                   if (showDeveloperOptions) {
+                                    ref.read(developerModeProvider.notifier).state = false;
                                     setSheetState(() {
                                       showDeveloperOptions = false;
                                     });
@@ -254,12 +255,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
                                   if (!authorized) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('꺼져!')),
+                                      const SnackBar(
+                                        content: Text('비밀번호가 올바르지 않습니다'),
+                                      ),
                                     );
-                                    Navigator.of(context).pop();
                                     return;
                                   }
 
+                                  ref.read(developerModeProvider.notifier).state = true;
                                   setSheetState(() {
                                     showDeveloperOptions = true;
                                   });

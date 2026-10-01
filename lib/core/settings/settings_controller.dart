@@ -16,6 +16,8 @@ final settingsControllerProvider =
       return SettingsController(repo)..load();
     });
 
+final developerModeProvider = StateProvider<bool>((ref) => false);
+
 class SettingsController extends StateNotifier<AppSettings> {
   SettingsController(this._repository) : super(AppSettings.defaults);
 
