@@ -224,6 +224,23 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
     state = AsyncData(next);
   }
 
+  /// 개발자 치트: 부화 일자 +1일 진행 (Day 7 도달 시 즉시 부화 트리거)
+  Future<void> developerAdvanceEggDay({int fallbackSpeciesId = 1}) async {
+    final current = state.valueOrNull ?? await _dao.getProfile();
+    final nextCrackDay = (current.eggCrackDay + 1).clamp(0, 7);
+    final shouldHatch = nextCrackDay >= 7;
+    final next = current.copyWith(
+      eggCrackDay: nextCrackDay,
+      currentStage: shouldHatch ? MascotStage.hatched : current.currentStage,
+      speciesId: shouldHatch
+          ? (current.speciesId ?? fallbackSpeciesId)
+          : current.speciesId,
+    );
+
+    await _dao.saveProfile(next);
+    state = AsyncData(next);
+  }
+
   Future<void> developerInstantHatch({int fallbackSpeciesId = 1}) async {
     final current = state.valueOrNull ?? await _dao.getProfile();
     final next = current.copyWith(
@@ -236,9 +253,15 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
     state = AsyncData(next);
   }
 
+  /// 개발자 치트: 마스코트 상호작용(밥주기, 쓰다듬기, 빗질) 쿨타임을 DateTime(2000)으로 리셋
   Future<void> developerResetCooldowns() async {
     final current = state.valueOrNull ?? await _dao.getProfile();
-    final next = current.copyWith(lastPetTime: null, lastFeedTime: null);
+    final past = DateTime(2000);
+    final next = current.copyWith(
+      lastPetTime: past,
+      lastFeedTime: past,
+      furGrowthGauge: 100, // 빗질 즉시 수행 가능하도록 게이지 완충
+    );
 
     await _dao.saveProfile(next);
     state = AsyncData(next);

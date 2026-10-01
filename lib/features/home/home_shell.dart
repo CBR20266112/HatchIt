@@ -132,7 +132,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         return AlertDialog(
           title: const Text('데이터 초기화'),
           content: const Text(
-            '모든 일정, 알 성장 기록, 재화가 초기화됩니다. 계속하시겠습니까?',
+            '모든 일정, 알 및 마스코트 기록, 재화, 다운로드된 에셋, 설정이 완전 삭제됩니다. 계속하시겠습니까?',
           ),
           actions: [
             TextButton(
@@ -160,18 +160,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       return;
     }
 
-    await ref.read(scheduleListProvider.notifier).clearAllSchedules();
-    await ref.read(dailyRecordControllerProvider).clearAllRecords();
-    await ref.read(mascotProfileProvider.notifier).resetForAppDataClear();
-
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('앱이 초기 상태로 리셋되었습니다.')));
-    Navigator.of(context).pop();
+    await executeFullAppReset(context, ref);
   }
 
   Future<void> _openTodayQuestionFromAppBar() async {
@@ -441,24 +430,59 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                             setSheetState(() {
                                               isDeveloperBusy = true;
                                               developerStatusMessage =
-                                                  '쿨타임 초기화 중...';
+                                                  '부화 일자 +1일 진행 중...';
+                                            });
+                                            await ref
+                                                .read(
+                                                  mascotProfileProvider.notifier,
+                                                )
+                                                .developerAdvanceEggDay();
+                                            if (!context.mounted) {
+                                               return;
+                                            }
+                                            setSheetState(() {
+                                              isDeveloperBusy = false;
+                                              developerStatusMessage =
+                                                  '완료: ⏩ 부화 일자 +1일 진행 (Day 7 도달 시 자동 부화)';
+                                            });
+                                          },
+                                    icon: const Icon(Icons.fast_forward_rounded),
+                                    label: const Text('⏩ 부화 일자 +1일 진행'),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.tonalIcon(
+                                    onPressed: isDeveloperBusy
+                                        ? null
+                                        : () async {
+                                            setSheetState(() {
+                                              isDeveloperBusy = true;
+                                              developerStatusMessage =
+                                                  '모든 쿨타임 초기화 중...';
                                             });
                                             await ref
                                                 .read(
                                                   mascotProfileProvider.notifier,
                                                 )
                                                 .developerResetCooldowns();
+                                            await ref
+                                                .read(
+                                                  dailyRecordControllerProvider,
+                                                )
+                                                .clearAllRecords();
                                             if (!context.mounted) {
-                                              return;
+                                               return;
                                             }
                                             setSheetState(() {
                                               isDeveloperBusy = false;
                                               developerStatusMessage =
-                                                  '완료: 쓰다듬기/밥주기 쿨타임이 즉시 리셋됐습니다.';
+                                                  '완료: ⏱️ 밥·쓰다듬기·빗질·일일 퀘스트 쿨타임 즉시 리셋 완료!';
                                             });
                                           },
-                                    icon: const Icon(Icons.refresh_rounded),
-                                    label: const Text('쿨타임 리셋'),
+                                    icon: const Icon(Icons.timer_off_rounded),
+                                    label: const Text('⏱️ 모든 쿨타임 즉시 초기화'),
                                   ),
                                 ),
                                 const SizedBox(height: 8),

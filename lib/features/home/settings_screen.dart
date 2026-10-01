@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/settings/settings_controller.dart';
+import '../daily_records/presentation/daily_record_controller.dart';
 import '../mascot/domain/mascot_species.dart';
 import '../mascot/presentation/mascot_controller.dart';
 
@@ -269,6 +270,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: const Text('마스코트 종 적용'),
             ),
             const SizedBox(height: 12),
+            // 개발자 치트 1: [⏩ 부화 일자 +1일 진행]
+            FilledButton.tonalIcon(
+              onPressed: isDeveloperBusy
+                  ? null
+                  : () async {
+                      setState(() => isDeveloperBusy = true);
+                      await ref
+                          .read(mascotProfileProvider.notifier)
+                          .developerAdvanceEggDay();
+                      if (mounted) {
+                        setState(() {
+                          isDeveloperBusy = false;
+                          developerStatusMessage =
+                              '⏩ 부화 일자 +1일 진행 완료 (Day 7 도달 시 자동 부화)';
+                        });
+                      }
+                    },
+              icon: const Icon(Icons.fast_forward_rounded),
+              label: const Text('⏩ 부화 일자 +1일 진행'),
+            ),
+            const SizedBox(height: 8),
+            // 개발자 치트 2: [⏱️ 모든 쿨타임 즉시 초기화]
+            FilledButton.tonalIcon(
+              onPressed: isDeveloperBusy
+                  ? null
+                  : () async {
+                      setState(() => isDeveloperBusy = true);
+                      await ref
+                          .read(mascotProfileProvider.notifier)
+                          .developerResetCooldowns();
+                      await ref
+                          .read(dailyRecordControllerProvider)
+                          .clearAllRecords();
+                      if (mounted) {
+                        setState(() {
+                          isDeveloperBusy = false;
+                          developerStatusMessage =
+                              '⏱️ 모든 쿨타임(밥·쓰다듬기·빗질·일일 퀘스트) 즉시 초기화 완료!';
+                        });
+                      }
+                    },
+              icon: const Icon(Icons.timer_off_rounded),
+              label: const Text('⏱️ 모든 쿨타임 즉시 초기화'),
+            ),
+            const SizedBox(height: 8),
             OutlinedButton(
               onPressed: isDeveloperBusy
                   ? null
@@ -286,24 +332,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     },
               child: const Text('즉시 부화 (Instant Hatch)'),
             ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: isDeveloperBusy
-                  ? null
-                  : () async {
-                      setState(() => isDeveloperBusy = true);
-                      await ref
-                          .read(mascotProfileProvider.notifier)
-                          .developerResetCooldowns();
-                      if (mounted) {
-                        setState(() {
-                          isDeveloperBusy = false;
-                          developerStatusMessage = '모든 쿨타임이 리셋되었습니다.';
-                        });
-                      }
-                    },
-              child: const Text('쿨타임 리셋'),
-            ),
             if (developerStatusMessage != null) ...[
               const SizedBox(height: 8),
               Text(
@@ -312,6 +340,52 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ],
           ],
+          const SizedBox(height: 28),
+          const Divider(),
+          const SizedBox(height: 12),
+          // 앱 데이터 전체 초기화 버튼
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+                side: BorderSide(color: Theme.of(context).colorScheme.error),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (dialogCtx) => AlertDialog(
+                    title: const Text('앱 데이터 전체 초기화'),
+                    content: const Text(
+                      '모든 일정, 알 및 마스코트 기록, 재화, 다운로드된 에셋, 설정이 완전 삭제됩니다.\n계속하시겠습니까?',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogCtx).pop(false),
+                        child: const Text('취소'),
+                      ),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.error,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onError,
+                        ),
+                        onPressed: () => Navigator.of(dialogCtx).pop(true),
+                        child: const Text('전체 초기화'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true && context.mounted) {
+                  await executeFullAppReset(context, ref);
+                }
+              },
+              icon: const Icon(Icons.delete_forever_rounded),
+              label: const Text('앱 데이터 전체 초기화'),
+            ),
+          ),
         ],
       ),
     );

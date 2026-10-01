@@ -1300,6 +1300,28 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
   }
 
   Future<void> _openAssistantInputSheet({MascotProfile? profile}) async {
+    final settings = ref.read(settingsControllerProvider);
+    const envGeminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
+    final apiKey = settings.geminiApiKey.trim().isNotEmpty
+        ? settings.geminiApiKey.trim()
+        : envGeminiApiKey.trim();
+
+    if (apiKey.isEmpty) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogCtx) => AlertDialog(
+          title: const Text('API 키 필요'),
+          content: const Text('설정에서 Gemini API Key를 먼저 입력해주세요.'),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     final resolvedProfile =
         profile ?? ref.read(mascotProfileProvider).asData?.value;
     final isEgg =
@@ -1421,11 +1443,39 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
         return;
       }
       _showAssistantBubble('응답을 처리하다가 문제가 생겼어. 다시 말해줘!');
+
+      final errText = error.toString().toLowerCase();
+      String diagnosticMessage;
+      if (errText.contains('socketexception') ||
+          errText.contains('failed host lookup') ||
+          errText.contains('clientexception') ||
+          errText.contains('timeoutexception') ||
+          errText.contains('network is unreachable') ||
+          errText.contains('connection refused') ||
+          errText.contains('handshakeexception')) {
+        diagnosticMessage = 'AI 비서 오류: 인터넷 연결을 확인해주세요. (인터넷 단절)';
+      } else if (errText.contains('400') ||
+          errText.contains('401') ||
+          errText.contains('403') ||
+          errText.contains('api_key') ||
+          errText.contains('api key') ||
+          errText.contains('unauthenticated') ||
+          errText.contains('permission_denied')) {
+        diagnosticMessage = 'AI 비서 오류: API 키가 올바르지 않습니다. (API 키 인증 실패)';
+      } else if (error is FormatException ||
+          errText.contains('formatexception') ||
+          errText.contains('json') ||
+          errText.contains('syntaxerror') ||
+          errText.contains('unexpected character')) {
+        diagnosticMessage = 'AI 비서 오류: 응답 데이터를 파싱하지 못했습니다. (JSON 파싱 오류)';
+      } else {
+        diagnosticMessage = 'AI 비서 연결 실패: 네트워크 상태 또는 API 키를 확인해주세요.';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'AI 비서 연결 실패: 네트워크 상태 또는 API 키를 확인해주세요.',
-          ),
+        SnackBar(
+          content: Text(diagnosticMessage),
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     } finally {

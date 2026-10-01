@@ -18,6 +18,25 @@ class AppDatabase {
     return database.then((_) {});
   }
 
+  /// 로컬 SQLite 데이터베이스 파일 완전 삭제 (앱 전체 초기화용)
+  Future<void> resetDatabase() async {
+    if (kIsWeb) {
+      return;
+    }
+    try {
+      if (_database != null) {
+        await _database!.close();
+        _database = null;
+      }
+      final dbPath = await getDatabasesPath();
+      final path = p.join(dbPath, _databaseName);
+      await deleteDatabase(path);
+      debugPrint('[AppDatabase] Database file deleted: $path');
+    } catch (error) {
+      debugPrint('[AppDatabase] resetDatabase error: $error');
+    }
+  }
+
   Future<Database> get database async {
     if (kIsWeb) {
       throw UnsupportedError('SQLite database is bypassed on web runtime.');

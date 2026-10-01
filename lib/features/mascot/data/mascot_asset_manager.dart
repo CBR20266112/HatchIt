@@ -139,4 +139,18 @@ class MascotAssetManager {
       debugPrint('[MascotAssetManager] deleteMascotPack error: $e');
     }
   }
+
+  /// 모든 다운로드된 마스코트 에셋 삭제 (앱 데이터 초기화용)
+  Future<void> clearAll() async {
+    try {
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final mascotsRoot = Directory(p.join(appDocDir.path, 'mascots'));
+      if (await mascotsRoot.exists()) {
+        await mascotsRoot.delete(recursive: true);
+        debugPrint('[MascotAssetManager] clearAll: deleted all downloaded mascot assets');
+      }
+    } catch (e) {
+      debugPrint('[MascotAssetManager] clearAll error: $e');
+    }
+  }
 }
