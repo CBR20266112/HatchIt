@@ -46,6 +46,8 @@ dependencies:
   image_picker: ^1.1.2
   permission_handler: ^11.4.0
   http: 1.5.0
+  archive: ^3.6.1
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
@@ -71,27 +73,11 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Mascot asset pipeline
+  # Mascot asset pipeline (On-Demand download structure)
   assets:
-    - assets/images/mascots/0/
-    - assets/images/mascots/1/
-    - assets/images/mascots/2/
-    - assets/images/mascots/3/
-    - assets/images/mascots/4/
-    - assets/images/mascots/5/
-    - assets/images/mascots/6/
-    - assets/images/mascots/7/
-    - assets/images/mascots/8/
-    - assets/images/mascots/9/
-    - assets/images/mascots/10/
-    - assets/images/mascots/11/
-    - assets/images/mascots/12/
-    - assets/images/mascots/13/
-    - assets/images/mascots/14/
-    - assets/images/mascots/15/
-    - assets/images/mascots/16/
     - assets/images/eggs/
     - assets/images/ui/
+    - assets/images/mascots/1/idle.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

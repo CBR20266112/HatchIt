@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import '../../daily_records/domain/daily_record.dart';
 import '../../daily_records/presentation/daily_record_controller.dart';
 import '../../schedules/domain/schedule.dart';
 import '../../schedules/presentation/schedule_controller.dart';
+import '../data/mascot_asset_manager.dart';
 import '../domain/mascot_profile.dart';
 import '../domain/mascot_species.dart';
 import 'mascot_controller.dart';
@@ -441,13 +443,27 @@ Widget _buildAssetWithFallback({
   required double height,
   required BoxFit fit,
   required Widget Function() onAllFailed,
+  Directory? localDir,
 }) {
   Widget buildAt(int index) {
     if (index >= candidates.length) {
       return onAllFailed();
     }
+    final candidate = candidates[index];
+    if (localDir != null) {
+      final file = File('${localDir.path}/$candidate');
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) => buildAt(index + 1),
+        );
+      }
+    }
     return Image.asset(
-      '$base/${candidates[index]}',
+      '$base/$candidate',
       width: width,
       height: height,
       fit: fit,
@@ -528,6 +544,173 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
   bool _assistantBubbleVisible = false;
   bool _isAssistantBusy = false;
 
+  // On-Demand 마스코트 에셋 상태
+  int? _checkedSpeciesId;
+  bool _isSpeciesDownloaded = true;
+  bool _isDownloadingPack = false;
+  double _downloadProgress = 0.0;
+  String? _downloadError;
+  Directory? _localSpeciesDir;
+
+  Future<void> _checkMascotAssets(int speciesId, {required bool isEgg}) async {
+    if (isEgg) {
+      return;
+    }
+    if (_checkedSpeciesId == speciesId && _isSpeciesDownloaded) {
+      return;
+    }
+    _checkedSpeciesId = speciesId;
+    final manager = MascotAssetManager.instance;
+    final downloaded = await manager.isSpeciesDownloaded(speciesId);
+    final localDir = await manager.getSpeciesDirectory(speciesId);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isSpeciesDownloaded = downloaded;
+      _localSpeciesDir = localDir;
+    });
+
+    if (!downloaded && !_isDownloadingPack) {
+      unawaited(_startDownloadMascot(speciesId));
+    }
+  }
+
+  Future<void> _startDownloadMascot(int speciesId) async {
+    if (_isDownloadingPack) {
+      return;
+    }
+    setState(() {
+      _isDownloadingPack = true;
+      _downloadProgress = 0.0;
+      _downloadError = null;
+    });
+
+    try {
+      final manager = MascotAssetManager.instance;
+      await manager.downloadMascotPack(
+        speciesId,
+        onProgress: (progress) {
+          if (mounted) {
+            setState(() {
+              _downloadProgress = progress;
+            });
+          }
+        },
+      );
+      if (mounted) {
+        final localDir = await manager.getSpeciesDirectory(speciesId);
+        setState(() {
+          _isSpeciesDownloaded = true;
+          _isDownloadingPack = false;
+          _localSpeciesDir = localDir;
+          _downloadError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isDownloadingPack = false;
+          _downloadError = '다운로드에 실패했습니다. 다시 시도해주세요.';
+        });
+      }
+    }
+  }
+
+  Widget _buildDownloadProgressOverlay(
+    MascotSpeciesDefinition species,
+    MascotThemePalette palette,
+  ) {
+    if (_isDownloadingPack) {
+      final percent = (_downloadProgress * 100).toInt();
+      return Container(
+        width: 220,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 34,
+              height: 34,
+              child: CircularProgressIndicator(
+                value: _downloadProgress > 0 ? _downloadProgress : null,
+                strokeWidth: 3.2,
+                color: palette.primary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '캐릭터 데이터 다운로드 중...',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$percent% 완료',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: _downloadProgress > 0 ? _downloadProgress : null,
+                minHeight: 6,
+                color: palette.primary,
+                backgroundColor: palette.secondary.withValues(alpha: 0.2),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.cloud_download_outlined, size: 36, color: palette.primary),
+          const SizedBox(height: 8),
+          Text(
+            _downloadError ?? '${species.name} (${species.nickname}) 데이터 받기',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 10),
+          FilledButton.tonal(
+            onPressed: () => _startDownloadMascot(species.id),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              minimumSize: const Size(0, 36),
+            ),
+            child: const Text('다운로드 시작'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -575,6 +758,10 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
             MascotThemePalette.fromSpeciesId(null);
 
         _trackEggHatchTransition(profile);
+        _checkMascotAssets(
+          profile.speciesId ?? 1,
+          isEgg: profile.currentStage == MascotStage.egg,
+        );
 
         return Stack(
           children: [
@@ -834,21 +1021,24 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
                               },
                             ),
                           )
-                        : _buildAssetWithFallback(
-                            base: base,
-                            candidates: candidates,
-                            width: 180,
-                            height: 180,
-                            fit: BoxFit.contain,
-                            onAllFailed: () {
-                              return _buildMascotFallback(
-                                icon: Icons.pets_rounded,
-                                size: 200,
-                                subtitle: '삼순이 준비 중',
-                                palette: palette,
-                              );
-                            },
-                          ),
+                        : (!isEgg && !_isSpeciesDownloaded)
+                            ? _buildDownloadProgressOverlay(species, palette)
+                            : _buildAssetWithFallback(
+                                base: base,
+                                candidates: candidates,
+                                width: 180,
+                                height: 180,
+                                fit: BoxFit.contain,
+                                localDir: _localSpeciesDir,
+                                onAllFailed: () {
+                                  return _buildMascotFallback(
+                                    icon: Icons.pets_rounded,
+                                    size: 200,
+                                    subtitle: '${species.nickname} 준비 중',
+                                    palette: palette,
+                                  );
+                                },
+                              ),
                   ),
                 ),
                 if (_assistantBubbleText != null)
@@ -1499,6 +1689,7 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
                       width: 120,
                       height: 120,
                       fit: BoxFit.contain,
+                      localDir: _localSpeciesDir,
                       onAllFailed: () => const SizedBox.shrink(),
                     ),
                   ),
@@ -1510,6 +1701,7 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
                       width: 120,
                       height: 120,
                       fit: BoxFit.contain,
+                      localDir: _localSpeciesDir,
                       onAllFailed: () => const SizedBox.shrink(),
                     ),
                   ),
