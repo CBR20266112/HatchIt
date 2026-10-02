@@ -187,9 +187,7 @@ class GeminiAssistantService {
           'parts': [
             {
               'text':
-                  '현재 시각: ${now.toIso8601String()}
-사용자 입력: $trimmed
-JSON만 반환해.'
+                  '현재 시각: ${now.toIso8601String()}\n사용자 입력: $trimmed\nJSON만 반환해.'
             },
           ],
         },
