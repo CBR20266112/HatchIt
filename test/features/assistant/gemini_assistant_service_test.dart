@@ -115,6 +115,27 @@ void main() {
       expect(result.scheduleData!.endTime, '20:00');
       expect(result.scheduleData!.title, '동아리 회의');
     });
+
+    test('LocalScheduleParser 한국어 조사 후처리 테스트', () {
+      final now = DateTime(2026, 9, 29, 10, 0); // 화요일
+      final r1 = LocalScheduleParser.parse(
+        '17시까지 순천역 도착',
+        now: now,
+        speciesId: 1,
+      );
+      expect(r1.scheduleData!.title, '순천역 도착');
+      expect(r1.scheduleData!.startTime, '17:00');
+      expect(r1.scheduleData!.date, isNotNull);
+
+      final r2 = LocalScheduleParser.parse(
+        '9시에 신대지구 식당 예약',
+        now: now,
+        speciesId: 1,
+      );
+      expect(r2.scheduleData!.title, '신대지구 식당 예약');
+      expect(r2.scheduleData!.startTime, '09:00');
+      expect(r2.scheduleData!.date, isNotNull);
+    });
   });
 
   group('GeminiAssistantService Live API Test', () {

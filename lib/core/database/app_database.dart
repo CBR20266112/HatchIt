@@ -7,7 +7,7 @@ class AppDatabase {
 
   static final AppDatabase instance = AppDatabase._();
   static const _databaseName = 'hatchit.db';
-  static const _databaseVersion = 3;
+  static const _databaseVersion = 4;
 
   Database? _database;
 
@@ -101,7 +101,8 @@ class AppDatabase {
         end_time TEXT NOT NULL,
         location TEXT,
         is_completed INTEGER NOT NULL DEFAULT 0 CHECK (is_completed IN (0, 1)),
-        alarm_offset_minutes INTEGER NOT NULL DEFAULT 30 CHECK (alarm_offset_minutes IN (30, 60, 90, 120))
+        alarm_offset_minutes INTEGER NOT NULL DEFAULT 30 CHECK (alarm_offset_minutes IN (30, 60, 90, 120)),
+        date TEXT
       )
     ''');
 
@@ -145,6 +146,13 @@ class AppDatabase {
         last_feed_time TEXT
       )
     ''');
+
+    await _ensureColumnExists(
+      db,
+      table: 'schedules',
+      column: 'date',
+      definition: 'TEXT',
+    );
 
     await db.insert('app_settings', {
       'id': 1,

@@ -11,6 +11,7 @@ class Schedule {
     required this.location,
     required this.isCompleted,
     required this.alarmOffsetMinutes,
+    this.date,
   });
 
   final int? id;
@@ -22,6 +23,7 @@ class Schedule {
   final String? location;
   final bool isCompleted;
   final int alarmOffsetMinutes;
+  final String? date; // 'YYYY-MM-DD' 단발성 일정 날짜, null이면 주간 반복
 
   Schedule copyWith({
     int? id,
@@ -33,6 +35,7 @@ class Schedule {
     String? location,
     bool? isCompleted,
     int? alarmOffsetMinutes,
+    Object? date = _sentinel,
   }) {
     return Schedule(
       id: id ?? this.id,
@@ -44,6 +47,7 @@ class Schedule {
       location: location ?? this.location,
       isCompleted: isCompleted ?? this.isCompleted,
       alarmOffsetMinutes: alarmOffsetMinutes ?? this.alarmOffsetMinutes,
+      date: date is _Sentinel ? this.date : date as String?,
     );
   }
 
@@ -58,6 +62,7 @@ class Schedule {
       'location': location,
       'is_completed': isCompleted ? 1 : 0,
       'alarm_offset_minutes': alarmOffsetMinutes,
+      'date': date,
     };
   }
 
@@ -72,6 +77,7 @@ class Schedule {
       location: map['location'] as String?,
       isCompleted: ((map['is_completed'] as int?) ?? 0) == 1,
       alarmOffsetMinutes: (map['alarm_offset_minutes'] as int?) ?? 30,
+      date: map['date'] as String?,
     );
   }
 
@@ -94,3 +100,9 @@ class Schedule {
     }
   }
 }
+
+class _Sentinel {
+  const _Sentinel();
+}
+
+const _sentinel = _Sentinel();

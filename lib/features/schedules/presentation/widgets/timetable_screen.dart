@@ -184,9 +184,21 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
     const endHour = 21;
     const rowHeight = 46.0;
 
-    final classSchedules = schedules
-        .where((s) => s.dayOfWeek >= 1 && s.dayOfWeek <= 5)
-        .toList();
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final thisWeekDates = List.generate(5, (index) {
+      final d = monday.add(Duration(days: index));
+      return '${d.year.toString().padLeft(4, '0')}-'
+          '${d.month.toString().padLeft(2, '0')}-'
+          '${d.day.toString().padLeft(2, '0')}';
+    });
+
+    // date가 null인 순수 강의는 매주 반복 표시, date가 있는 단발성 일정은 이번 주 해당 날짜에만 1회 표시
+    final classSchedules = schedules.where((s) {
+      if (s.dayOfWeek < 1 || s.dayOfWeek > 5) return false;
+      if (s.date == null) return true;
+      return s.date == thisWeekDates[s.dayOfWeek - 1];
+    }).toList();
 
     return Card(
       key: key,
@@ -384,10 +396,19 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
                   return const SizedBox.shrink();
                 }
 
-                final fakeWeekday = DateTime(now.year, now.month, day).weekday;
-                final count = schedules
-                    .where((s) => s.dayOfWeek == fakeWeekday)
-                    .length;
+                final cellDate = DateTime(now.year, now.month, day);
+                final cellDateStr =
+                    '${cellDate.year.toString().padLeft(4, '0')}-'
+                    '${cellDate.month.toString().padLeft(2, '0')}-'
+                    '${cellDate.day.toString().padLeft(2, '0')}';
+                final fakeWeekday = cellDate.weekday;
+                // 반복 일정(date==null, 요일 일치) + 단발성 일정(date==cellDateStr)
+                final count = schedules.where((s) {
+                  if (s.date == null) {
+                    return s.dayOfWeek == fakeWeekday;
+                  }
+                  return s.date == cellDateStr;
+                }).length;
                 return Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surfaceContainerHighest
@@ -502,9 +523,15 @@ class _TimetableScreenState extends ConsumerState<TimetableScreen> {
 
   bool _isClassInProgress(List<Schedule> schedules) {
     final now = DateTime.now();
+    final todayStr = '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+
     for (final schedule in schedules) {
-      if (schedule.dayOfWeek != now.weekday) {
-        continue;
+      if (schedule.date != null) {
+        if (schedule.date != todayStr) continue;
+      } else {
+        if (schedule.dayOfWeek != now.weekday) continue;
       }
       final start = _toMinutes(schedule.startTime);
       final end = _toMinutes(schedule.endTime);

@@ -13,6 +13,7 @@ class AssistantScheduleData {
     required this.startTime,
     required this.endTime,
     required this.colorIndex,
+    this.date, // 'YYYY-MM-DD' 단발성 일정, null이면 주간 반복
   });
 
   final String title;
@@ -20,6 +21,7 @@ class AssistantScheduleData {
   final String startTime;
   final String endTime;
   final int colorIndex;
+  final String? date;
 
   factory AssistantScheduleData.fromJson(Map<String, dynamic> json) {
     return AssistantScheduleData(
@@ -30,6 +32,9 @@ class AssistantScheduleData {
       startTime: _normalizeTime((json['start_time'] as String?) ?? '09:00'),
       endTime: _normalizeTime((json['end_time'] as String?) ?? '10:00'),
       colorIndex: _toInt(json['color_index'], fallback: 0, min: 0, max: 9),
+      date: (json['date'] as String?)?.trim().isEmpty == true
+          ? null
+          : json['date'] as String?,
     );
   }
 }
@@ -124,6 +129,11 @@ class GeminiAssistantService {
     required DateTime now,
     int? speciesId,
   }) async {
+    final cleanApiKey = apiKey.trim();
+    if (cleanApiKey.isEmpty) {
+      throw Exception('Gemini API 키가 설정되지 않았습니다. 설정에서 API 키를 입력해주세요.');
+    }
+
     final trimmed = userInput.trim();
     if (trimmed.isEmpty) {
       return AssistantResponse.fallback('아직 아무 말도 안 했어!');
@@ -151,6 +161,9 @@ class GeminiAssistantService {
 8) 시간(start_time, end_time, target_time)은 반드시 24시간 형식 "HH:mm"으로 지정
 9) 종료 시간(end_time)에 대한 언급이 없으면 start_time 기준 기본 1시간 뒤로 설정하라.
 10) 시간이 불명확하면 안전한 기본값 사용 (일정 09:00~10:00, 알람 08:30)
+11) date 필드:
+    - 사용자가 특정 날짜를 지정한 경우("5일", "오늘", "내일", "수요일에" 등 1회성 약속)는 "YYYY-MM-DD" 형식으로 date를 반드시 설정하라.
+    - 순수 반복 수업(매주 반복)은 date를 null로 설정하라.
 
 반환 스키마:
 {
@@ -159,6 +172,7 @@ class GeminiAssistantService {
   "day_of_week": 1,
   "start_time": "14:00",
   "end_time": "15:00",
+  "date": "2024-10-15",
   "dialogue": "...",
   "mascot_emotion": "expr_happy",
   "schedule_data": {
@@ -166,7 +180,8 @@ class GeminiAssistantService {
     "day_of_week": 1,
     "start_time": "14:00",
     "end_time": "15:00",
-    "color_index": 1
+    "color_index": 1,
+    "date": "2024-10-15"
   },
   "alarm_data": {
     "target_time": "08:30",
@@ -203,19 +218,21 @@ class GeminiAssistantService {
       uri,
       headers: {
         'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey.trim(),
+        'x-goog-api-key': cleanApiKey,
       },
       body: jsonEncode(payload),
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Gemini 요청 실패(${response.statusCode}): ${response.body}');
+      debugPrint('[Gemini API Error] HTTP ${response.statusCode}: ${response.body}');
+      throw Exception('HTTP ${response.statusCode}: ${response.body}');
     }
 
     final root = jsonDecode(response.body) as Map<String, dynamic>;
     final candidates = root['candidates'];
     if (candidates is! List || candidates.isEmpty) {
-      return AssistantResponse.fallback('응답을 못 받았어. 다시 말해줘!');
+      debugPrint('[Gemini API Error] candidates 비어있음: ${response.body}');
+      throw Exception('응답 후보(candidates)가 없습니다: ${response.body}');
     }
 
     final first = candidates.first;
@@ -292,7 +309,7 @@ class LocalScheduleParser {
       startMinute = 0;
     }
 
-    final timeRegex = RegExp(r'(\d{1,2})\s*[:시]\s*(\d{1,2})?\s*분?');
+    final timeRegex = RegExp(r'(\d{1,2})\s*[:시]\s*(\d{1,2})?\s*분?\s*(?:에|까지|부터|에는|쯤|경|이전|이후)?');
     final match = timeRegex.firstMatch(trimmed);
     if (match != null) {
       var parsedHour = int.parse(match.group(1)!);
@@ -318,6 +335,7 @@ class LocalScheduleParser {
     var title = trimmed;
     title = title.replaceAll(RegExp(r'오늘|내일|모레|글피|[월화수목금토일]요일?'), ' ');
     title = title.replaceAll(RegExp(r'(오전|오후|저녁|새벽|아침|밤)'), ' ');
+    title = title.replaceAll(RegExp(r'\b(까지|부터|에는|쯤|경|이전|이후)\b'), ' ');
     title = title.replaceAll(timeRegex, ' ');
     title = title.replaceAll(
       RegExp(r'등록해줘|추가해줘|잡아줘|넣어줘|만들어줘|해줘|할래|있어|일정|시간표|스케줄|약속'),
@@ -325,12 +343,26 @@ class LocalScheduleParser {
     );
     title = title.replaceAll(RegExp(r'[!?,.~]'), ' ').trim();
 
+    // 앞머리에 남은 불필요한 조사 일괄 제거
+    title = title.replaceFirst(
+      RegExp(r'^(까지|부터|에|에는|으로|로|은|는|이|가|\s)+'),
+      '',
+    ).trim();
+
     if (title.isEmpty) {
       title = '새 일정';
     }
 
     const dayNames = ['', '월', '화', '수', '목', '금', '토', '일'];
     final dayStr = dayNames[dayOfWeek];
+
+    // dayOfWeek 기준으로 실제 날짜 계산 (오늘부터 가장 가까운 해당 요일)
+    int daysAhead = dayOfWeek - current.weekday;
+    if (daysAhead < 0) daysAhead += 7;
+    final targetDate = current.add(Duration(days: daysAhead));
+    final dateStr = '${targetDate.year.toString().padLeft(4, '0')}-'
+        '${targetDate.month.toString().padLeft(2, '0')}-'
+        '${targetDate.day.toString().padLeft(2, '0')}';
 
     return AssistantResponse(
       action: AssistantAction.createSchedule,
@@ -342,6 +374,7 @@ class LocalScheduleParser {
         startTime: startTimeStr,
         endTime: endTimeStr,
         colorIndex: 1,
+        date: dateStr,
       ),
       alarmData: null,
     );

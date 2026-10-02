@@ -225,23 +225,37 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
     state = AsyncData(next);
   }
 
+  bool _isAdvancingEggDay = false;
+
   /// 개발자 치트: 부화 일자 +1일 진행 (Day 7 도달 시 즉시 부화 트리거 및 문답 상태 초기화)
   Future<void> developerAdvanceEggDay({int fallbackSpeciesId = 1}) async {
-    final current = state.valueOrNull ?? await _dao.getProfile();
-    final nextCrackDay = (current.eggCrackDay + 1).clamp(0, 7);
-    final shouldHatch = nextCrackDay >= 7;
-    final next = current.copyWith(
-      eggCrackDay: nextCrackDay,
-      currentStage: shouldHatch ? MascotStage.hatched : current.currentStage,
-      speciesId: shouldHatch
-          ? (current.speciesId ?? fallbackSpeciesId)
-          : current.speciesId,
-    );
+    if (_isAdvancingEggDay) return;
+    _isAdvancingEggDay = true;
+    try {
+      final current = state.valueOrNull ?? await _dao.getProfile();
+      final nextCrackDay = (current.eggCrackDay + 1).clamp(0, 7);
+      final shouldHatch = nextCrackDay >= 7;
+      final next = current.copyWith(
+        eggCrackDay: nextCrackDay,
+        currentStage: shouldHatch ? MascotStage.hatched : current.currentStage,
+        speciesId: shouldHatch
+            ? (current.speciesId ?? fallbackSpeciesId)
+            : current.speciesId,
+      );
 
-    await _dao.saveProfile(next);
-    // 해당 일차의 문답 완료 플래그 및 기록을 초기화하여 다음 날의 새로운 질문 즉시 오픈
-    await ref.read(dailyRecordControllerProvider).clearAllRecords();
-    state = AsyncData(next);
+      // 컨트롤러 내에서 1회만 정확히 +1 증가하도록 상태 갱신
+      await _dao.saveProfile(next);
+      state = AsyncData(next);
+
+      // ref.listen이나 clearAllRecords로 인해 날짜 증가 로직이 연쇄 실행되지 않도록 분리 실행
+      try {
+        await ref.read(dailyRecordControllerProvider).clearAllRecords();
+      } catch (e) {
+        debugPrint('[developerAdvanceEggDay] clearAllRecords error: $e');
+      }
+    } finally {
+      _isAdvancingEggDay = false;
+    }
   }
 
   Future<void> developerInstantHatch({int fallbackSpeciesId = 1}) async {

@@ -1391,7 +1391,7 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
   Future<void> _processAssistantInput(String userPrompt) async {
     final settings = ref.read(settingsControllerProvider);
     const envGeminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
-    final apiKey = settings.geminiApiKey.trim().isNotEmpty
+    final cleanApiKey = settings.geminiApiKey.trim().isNotEmpty
         ? settings.geminiApiKey.trim()
         : envGeminiApiKey.trim();
 
@@ -1402,8 +1402,9 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
     final profile = ref.read(mascotProfileProvider).valueOrNull;
     AssistantResponse? response;
     var usedOfflineFallback = false;
+    String? geminiErrorMessage;
 
-    if (apiKey.isEmpty) {
+    if (cleanApiKey.isEmpty) {
       // 트랙 B: API 키 부재 시 오프라인 로컬 규칙 파서로 즉시 처리
       response = LocalScheduleParser.parse(
         userPrompt,
@@ -1416,13 +1417,14 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
       try {
         response = await _assistantService.ask(
           userInput: userPrompt,
-          apiKey: apiKey,
+          apiKey: cleanApiKey,
           now: DateTime.now(),
           speciesId: profile?.speciesId,
         );
       } catch (error) {
-        debugPrint('[Assistant] Gemini API failed, falling back to LocalScheduleParser: $error');
-        // 오프라인 또는 에러 시 로컬 규칙 파서로 폴백
+        geminiErrorMessage = error.toString().replaceFirst('Exception: ', '');
+        debugPrint('[Assistant] Gemini API failed: $error');
+        // 조용히 삼키지 않고, 일정 유실 방지를 위해 로컬 파서로 등록을 지원하되 에러는 명확히 안내
         response = LocalScheduleParser.parse(
           userPrompt,
           now: DateTime.now(),
@@ -1440,7 +1442,15 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
       await _applyAssistantResponse(response);
     }
 
-    if (usedOfflineFallback && mounted) {
+    if (geminiErrorMessage != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⚠️ Gemini 호출 실패: $geminiErrorMessage\n(로컬 기본 파서로 등록되었습니다)'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } else if (usedOfflineFallback && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('💡 설정에서 Gemini API 키를 등록하면 더 똑똑한 자연어 대화가 가능해!'),
@@ -1506,6 +1516,7 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
       location: 'AI 비서 추가',
       isCompleted: false,
       alarmOffsetMinutes: 30,
+      date: data.date,
     );
   }
 
