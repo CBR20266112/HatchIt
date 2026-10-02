@@ -206,7 +206,7 @@ _AdaptiveEggQuestion _resolveAdaptiveEggQuestion(MascotProfile profile) {
     case _AdaptiveTrack.nature:
       if (adaptiveDay == 1) {
         return const _AdaptiveEggQuestion(
-          question: 'Day 3 · 자연/원리 트랙: 어디가 더 끌려?',
+          question: 'Day 3 · 어디가 더 끌려?',
           options: [
             _AdaptiveEggOption(
               label: '논리 퍼즐/원리 규명형',
@@ -251,7 +251,7 @@ _AdaptiveEggQuestion _resolveAdaptiveEggQuestion(MascotProfile profile) {
     case _AdaptiveTrack.humanities:
       if (adaptiveDay == 1) {
         return const _AdaptiveEggQuestion(
-          question: 'Day 3 · 인문/텍스트 트랙: 너의 모드는?',
+          question: 'Day 3 · 너의 모드는?',
           options: [
             _AdaptiveEggOption(
               label: '깊은 사색/독서/기록형',
@@ -296,7 +296,7 @@ _AdaptiveEggQuestion _resolveAdaptiveEggQuestion(MascotProfile profile) {
     case _AdaptiveTrack.artPhysical:
       if (adaptiveDay == 1) {
         return const _AdaptiveEggQuestion(
-          question: 'Day 3 · 예술체육/감각 트랙: 어디가 더 맞아?',
+          question: 'Day 3 · 어디가 더 맞아?',
           options: [
             _AdaptiveEggOption(
               label: '땀 흘리는 신체 활동형',
@@ -341,7 +341,7 @@ _AdaptiveEggQuestion _resolveAdaptiveEggQuestion(MascotProfile profile) {
     case _AdaptiveTrack.service:
       if (adaptiveDay == 1) {
         return const _AdaptiveEggQuestion(
-          question: 'Day 3 · 봉사/교육/자유 트랙: 어떤 역할이 편해?',
+          question: 'Day 3 · 어떤 역할이 편해?',
           options: [
             _AdaptiveEggOption(
               label: '타인의 멘탈 돌봄형',
@@ -745,6 +745,12 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(mascotProfileProvider, (previous, next) {
+      if (previous?.valueOrNull?.eggCrackDay != next.valueOrNull?.eggCrackDay) {
+        _syncTodayQuestionStatus();
+      }
+    });
+
     final l10n = AppLocalizations.of(context)!;
     final profileValue = ref.watch(mascotProfileProvider);
 
@@ -1168,7 +1174,7 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '오늘의 질문 · ${profile.eggCrackDay + 1} / 7',
+              'Day ${profile.eggCrackDay + 1} · 오늘의 문답',
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 6),
@@ -1300,28 +1306,6 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
   }
 
   Future<void> _openAssistantInputSheet({MascotProfile? profile}) async {
-    final settings = ref.read(settingsControllerProvider);
-    const envGeminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
-    final apiKey = settings.geminiApiKey.trim().isNotEmpty
-        ? settings.geminiApiKey.trim()
-        : envGeminiApiKey.trim();
-
-    if (apiKey.isEmpty) {
-      await showDialog<void>(
-        context: context,
-        builder: (dialogCtx) => AlertDialog(
-          title: const Text('API 키 필요'),
-          content: const Text('설정에서 Gemini API Key를 먼저 입력해주세요.'),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: const Text('확인'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
     final resolvedProfile =
         profile ?? ref.read(mascotProfileProvider).asData?.value;
     final isEgg =
@@ -1411,79 +1395,64 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
         ? settings.geminiApiKey.trim()
         : envGeminiApiKey.trim();
 
-    if (apiKey.isEmpty) {
-      _showAssistantBubble('API 키를 먼저 설정해줘! 설정에서 Gemini 키 등록 가능해 😺');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gemini API Key가 없습니다. 설정에서 등록하거나 --dart-define로 주입하세요.'),
-        ),
-      );
-      return;
-    }
-
     setState(() {
       _isAssistantBusy = true;
     });
 
     final profile = ref.read(mascotProfileProvider).valueOrNull;
+    AssistantResponse? response;
+    var usedOfflineFallback = false;
 
-    try {
-      final response = await _assistantService.ask(
-        userInput: userPrompt,
-        apiKey: apiKey,
+    if (apiKey.isEmpty) {
+      // 트랙 B: API 키 부재 시 오프라인 로컬 규칙 파서로 즉시 처리
+      response = LocalScheduleParser.parse(
+        userPrompt,
         now: DateTime.now(),
         speciesId: profile?.speciesId,
       );
-      if (!mounted) {
-        return;
+      usedOfflineFallback = true;
+    } else {
+      // 트랙 A: Gemini 1.5 Flash API 헤더 인증 통신
+      try {
+        response = await _assistantService.ask(
+          userInput: userPrompt,
+          apiKey: apiKey,
+          now: DateTime.now(),
+          speciesId: profile?.speciesId,
+        );
+      } catch (error) {
+        debugPrint('[Assistant] Gemini API failed, falling back to LocalScheduleParser: $error');
+        // 오프라인 또는 에러 시 로컬 규칙 파서로 폴백
+        response = LocalScheduleParser.parse(
+          userPrompt,
+          now: DateTime.now(),
+          speciesId: profile?.speciesId,
+        );
+        usedOfflineFallback = true;
       }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    if (response != null) {
       await _applyAssistantResponse(response);
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      _showAssistantBubble('응답을 처리하다가 문제가 생겼어. 다시 말해줘!');
+    }
 
-      final errText = error.toString().toLowerCase();
-      String diagnosticMessage;
-      if (errText.contains('socketexception') ||
-          errText.contains('failed host lookup') ||
-          errText.contains('clientexception') ||
-          errText.contains('timeoutexception') ||
-          errText.contains('network is unreachable') ||
-          errText.contains('connection refused') ||
-          errText.contains('handshakeexception')) {
-        diagnosticMessage = 'AI 비서 오류: 인터넷 연결을 확인해주세요. (인터넷 단절)';
-      } else if (errText.contains('400') ||
-          errText.contains('401') ||
-          errText.contains('403') ||
-          errText.contains('api_key') ||
-          errText.contains('api key') ||
-          errText.contains('unauthenticated') ||
-          errText.contains('permission_denied')) {
-        diagnosticMessage = 'AI 비서 오류: API 키가 올바르지 않습니다. (API 키 인증 실패)';
-      } else if (error is FormatException ||
-          errText.contains('formatexception') ||
-          errText.contains('json') ||
-          errText.contains('syntaxerror') ||
-          errText.contains('unexpected character')) {
-        diagnosticMessage = 'AI 비서 오류: 응답 데이터를 파싱하지 못했습니다. (JSON 파싱 오류)';
-      } else {
-        diagnosticMessage = 'AI 비서 연결 실패: 네트워크 상태 또는 API 키를 확인해주세요.';
-      }
-
+    if (usedOfflineFallback && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(diagnosticMessage),
-          backgroundColor: Theme.of(context).colorScheme.error,
+        const SnackBar(
+          content: Text('💡 설정에서 Gemini API 키를 등록하면 더 똑똑한 자연어 대화가 가능해!'),
+          duration: Duration(seconds: 4),
         ),
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isAssistantBusy = false;
-        });
-      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isAssistantBusy = false;
+      });
     }
   }
 
@@ -2049,7 +2018,7 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text('오늘의 질문 · ${profile.eggCrackDay + 1}/7'),
+          title: Text('Day ${profile.eggCrackDay + 1} · 오늘의 문답'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

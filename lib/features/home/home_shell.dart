@@ -678,7 +678,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                                                     decoration: InputDecoration(
                                                       labelText: 'Gemini API Key',
                                                       hintText:
-                                                          'AIza... 형식 키 입력',
+                                                          'Gemini API Key 입력',
                                                       border:
                                                           const OutlineInputBorder(),
                                                       suffixIcon: IconButton(

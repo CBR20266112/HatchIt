@@ -69,18 +69,27 @@ class AssistantResponse {
   factory AssistantResponse.fromJson(Map<String, dynamic> json) {
     final actionRaw = ((json['action'] as String?) ?? 'CHAT').toUpperCase();
     final action = switch (actionRaw) {
-      'CREATE_SCHEDULE' => AssistantAction.createSchedule,
+      'CREATE_SCHEDULE' || 'ADD_TIMETABLE' => AssistantAction.createSchedule,
       'SET_ALARM' => AssistantAction.setAlarm,
       'TOGGLE_ALARM' => AssistantAction.toggleAlarm,
       _ => AssistantAction.chat,
     };
 
-    final scheduleJson = json['schedule_data'];
+    // 평면 구조(root) 또는 중첩 구조(schedule_data) 모두 지원
+    final scheduleJson = json['schedule_data'] is Map<String, dynamic>
+        ? json['schedule_data'] as Map<String, dynamic>
+        : (json['title'] != null ? json : null);
+
     final alarmJson = json['alarm_data'];
+
+    final dialogue = ((json['dialogue'] as String?) ??
+            (json['reply_message'] as String?) ??
+            '알겠어! 반영해볼게.')
+        .trim();
 
     return AssistantResponse(
       action: action,
-      dialogue: ((json['dialogue'] as String?) ?? '알겠어! 반영해볼게.').trim(),
+      dialogue: dialogue,
       mascotEmotion: ((json['mascot_emotion'] as String?) ?? 'expr_happy').trim(),
       scheduleData: scheduleJson is Map<String, dynamic>
           ? AssistantScheduleData.fromJson(scheduleJson)
@@ -106,8 +115,8 @@ class GeminiAssistantService {
   const GeminiAssistantService();
 
   static const String model = 'gemini-1.5-flash';
-  static const String apiEndpointBase =
-      'https://generativelanguage.googleapis.com/v1beta/models';
+  static const String apiEndpoint =
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
   Future<AssistantResponse> ask({
     required String userInput,
@@ -121,10 +130,7 @@ class GeminiAssistantService {
     }
 
     final species = MascotSpeciesDefinition.byId(speciesId ?? 1);
-
-    final uri = Uri.parse(
-      '$apiEndpointBase/$model:generateContent?key=$apiKey',
-    );
+    final uri = Uri.parse(apiEndpoint);
 
     final systemPrompt = '''
 너는 대학생 생산성 앱의 AI 비서 마스코트 '${species.name}'이다.
@@ -135,26 +141,31 @@ class GeminiAssistantService {
 허용 action: CREATE_SCHEDULE, SET_ALARM, TOGGLE_ALARM, CHAT
 
 규칙:
-1) 일정 추가 요청이면 CREATE_SCHEDULE
+1) 수업, 과제, 시험뿐만 아니라 모임, 회의, 스터디, 식사 약속, 동아리, 운동 등 모든 일상 일정 추가 요청이면 action을 CREATE_SCHEDULE로 설정하라.
 2) 기상/알람 시간 설정 요청이면 SET_ALARM
 3) 알람 켜기/끄기 요청이면 TOGGLE_ALARM
 4) 그 외 일반 대화는 CHAT
-5) dialogue는 한국어 한 문장, 너의 고유 말투('${species.signatureSuffix}')를 살려 귀엽고 짧게
+5) dialogue는 한국어 한 문장, 너의 고유 말투('${species.signatureSuffix}')를 살려 귀엽고 친절하게 작성하라.
 6) mascot_emotion은 다음 중 하나 사용: waving, study_burn, alarm_panic, expr_happy, expr_pouty, expr_sad_teary, expr_surprised
 7) day_of_week는 1(월요일), 2(화요일), 3(수요일), 4(목요일), 5(금요일), 6(토요일), 7(일요일)로 지정
 8) 시간(start_time, end_time, target_time)은 반드시 24시간 형식 "HH:mm"으로 지정
-9) 시간이 불명확하면 안전한 기본값 사용 (일정 09:00~10:00, 알람 08:30)
+9) 종료 시간(end_time)에 대한 언급이 없으면 start_time 기준 기본 1시간 뒤로 설정하라.
+10) 시간이 불명확하면 안전한 기본값 사용 (일정 09:00~10:00, 알람 08:30)
 
 반환 스키마:
 {
   "action": "CREATE_SCHEDULE" | "SET_ALARM" | "TOGGLE_ALARM" | "CHAT",
+  "title": "사용자가 말한 일정 내용 (예: 동아리 회의, 점심 약속)",
+  "day_of_week": 1,
+  "start_time": "14:00",
+  "end_time": "15:00",
   "dialogue": "...",
-  "mascot_emotion": "...",
+  "mascot_emotion": "expr_happy",
   "schedule_data": {
-    "title": "...",
+    "title": "사용자가 말한 일정 내용",
     "day_of_week": 1,
     "start_time": "14:00",
-    "end_time": "15:30",
+    "end_time": "15:00",
     "color_index": 1
   },
   "alarm_data": {
@@ -176,7 +187,9 @@ class GeminiAssistantService {
           'parts': [
             {
               'text':
-                  '현재 시각: ${now.toIso8601String()}\n사용자 입력: $trimmed\nJSON만 반환해.'
+                  '현재 시각: ${now.toIso8601String()}
+사용자 입력: $trimmed
+JSON만 반환해.'
             },
           ],
         },
@@ -190,7 +203,10 @@ class GeminiAssistantService {
 
     final response = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey.trim(),
+      },
       body: jsonEncode(payload),
     );
 
@@ -227,6 +243,110 @@ class GeminiAssistantService {
     }
 
     return AssistantResponse.fromJson(decoded);
+  }
+}
+
+/// 오프라인 로컬 규칙 파서 (API 키 부재 시 또는 오프라인 폴백용)
+class LocalScheduleParser {
+  const LocalScheduleParser._();
+
+  static AssistantResponse parse(String input, {DateTime? now, int? speciesId}) {
+    final current = now ?? DateTime.now();
+    final trimmed = input.trim();
+    final species = MascotSpeciesDefinition.byId(speciesId ?? 1);
+
+    // 1. 날짜 추출 (dayOfWeek: 1=월, 7=일)
+    int dayOfWeek = current.weekday; // 기본값: 오늘 요일
+
+    if (trimmed.contains('내일')) {
+      dayOfWeek = (current.weekday % 7) + 1;
+    } else if (trimmed.contains('모레')) {
+      dayOfWeek = ((current.weekday + 1) % 7) + 1;
+    } else if (trimmed.contains('글피')) {
+      dayOfWeek = ((current.weekday + 2) % 7) + 1;
+    } else if (RegExp(r'월요일|월욜|월').hasMatch(trimmed)) {
+      dayOfWeek = 1;
+    } else if (RegExp(r'화요일|화욜|화').hasMatch(trimmed)) {
+      dayOfWeek = 2;
+    } else if (RegExp(r'수요일|수욜|수').hasMatch(trimmed)) {
+      dayOfWeek = 3;
+    } else if (RegExp(r'목요일|목욜|목').hasMatch(trimmed)) {
+      dayOfWeek = 4;
+    } else if (RegExp(r'금요일|금욜|금').hasMatch(trimmed)) {
+      dayOfWeek = 5;
+    } else if (RegExp(r'토요일|토욜|토').hasMatch(trimmed)) {
+      dayOfWeek = 6;
+    } else if (RegExp(r'일요일|일욜|일').hasMatch(trimmed)) {
+      dayOfWeek = 7;
+    }
+
+    // 2. 시간 추출
+    int startHour = 9;
+    int startMinute = 0;
+    final isPm = trimmed.contains('오후') || trimmed.contains('저녁') || trimmed.contains('밤');
+    final isAm = trimmed.contains('오전') || trimmed.contains('새벽') || trimmed.contains('아침');
+
+    if (trimmed.contains('점심')) {
+      startHour = 12;
+      startMinute = 0;
+    } else if (trimmed.contains('저녁') && !RegExp(r'\d+\s*시').hasMatch(trimmed)) {
+      startHour = 18;
+      startMinute = 0;
+    }
+
+    final timeRegex = RegExp(r'(\d{1,2})\s*[:시]\s*(\d{1,2})?\s*분?');
+    final match = timeRegex.firstMatch(trimmed);
+    if (match != null) {
+      var parsedHour = int.parse(match.group(1)!);
+      final parsedMinute = match.group(2) != null ? int.parse(match.group(2)!) : 0;
+
+      if (isPm && parsedHour < 12) {
+        parsedHour += 12;
+      } else if (isAm && parsedHour == 12) {
+        parsedHour = 0;
+      }
+      startHour = parsedHour.clamp(0, 23);
+      startMinute = parsedMinute.clamp(0, 59);
+    }
+
+    // 3. 종료 시간 (기본 1시간 뒤)
+    final endHour = (startHour + 1) % 24;
+    final endMinute = startMinute;
+
+    final startTimeStr = '${startHour.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')}';
+    final endTimeStr = '${endHour.toString().padLeft(2, '0')}:${endMinute.toString().padLeft(2, '0')}';
+
+    // 4. 제목 추출: 날짜/시간/서술어 제외한 나머지 문구
+    var title = trimmed;
+    title = title.replaceAll(RegExp(r'오늘|내일|모레|글피|[월화수목금토일]요일?'), ' ');
+    title = title.replaceAll(RegExp(r'(오전|오후|저녁|새벽|아침|밤)'), ' ');
+    title = title.replaceAll(timeRegex, ' ');
+    title = title.replaceAll(
+      RegExp(r'등록해줘|추가해줘|잡아줘|넣어줘|만들어줘|해줘|할래|있어|일정|시간표|스케줄|약속'),
+      ' ',
+    );
+    title = title.replaceAll(RegExp(r'[!?,.~]'), ' ').trim();
+
+    if (title.isEmpty) {
+      title = '새 일정';
+    }
+
+    const dayNames = ['', '월', '화', '수', '목', '금', '토', '일'];
+    final dayStr = dayNames[dayOfWeek];
+
+    return AssistantResponse(
+      action: AssistantAction.createSchedule,
+      dialogue: '$dayStr요일 $startTimeStr에 "$title" 일정을 등록했어${species.signatureSuffix}!',
+      mascotEmotion: 'expr_happy',
+      scheduleData: AssistantScheduleData(
+        title: title,
+        dayOfWeek: dayOfWeek,
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        colorIndex: 1,
+      ),
+      alarmData: null,
+    );
   }
 }
 

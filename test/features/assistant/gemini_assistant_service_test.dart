@@ -84,6 +84,37 @@ void main() {
       expect(schedule.endTime, '08:30'); // fallback
       expect(schedule.colorIndex, 0); // fallback
     });
+
+    test('LocalScheduleParser 오프라인 로컬 규칙 파서 테스트', () {
+      final now = DateTime(2026, 9, 29, 10, 0); // 화요일 (weekday = 2)
+      final result = LocalScheduleParser.parse(
+        '내일 오후 2시 자료구조 일정 추가해줘',
+        now: now,
+        speciesId: 1,
+      );
+
+      expect(result.action, AssistantAction.createSchedule);
+      expect(result.scheduleData, isNotNull);
+      expect(result.scheduleData!.dayOfWeek, 3); // 수요일 (화+1)
+      expect(result.scheduleData!.startTime, '14:00');
+      expect(result.scheduleData!.endTime, '15:00');
+      expect(result.scheduleData!.title, '자료구조');
+    });
+
+    test('LocalScheduleParser 동아리 회의 / 점심 약속 파싱 테스트', () {
+      final now = DateTime(2026, 9, 29, 10, 0);
+      final result = LocalScheduleParser.parse(
+        '금요일 19시 동아리 회의',
+        now: now,
+        speciesId: 1,
+      );
+
+      expect(result.action, AssistantAction.createSchedule);
+      expect(result.scheduleData!.dayOfWeek, 5); // 금요일
+      expect(result.scheduleData!.startTime, '19:00');
+      expect(result.scheduleData!.endTime, '20:00');
+      expect(result.scheduleData!.title, '동아리 회의');
+    });
   });
 
   group('GeminiAssistantService Live API Test', () {

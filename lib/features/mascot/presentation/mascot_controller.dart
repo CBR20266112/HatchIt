@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database_provider.dart';
+import '../../daily_records/presentation/daily_record_controller.dart';
 import '../data/mascot_profile_dao.dart';
 import '../domain/mascot_profile.dart';
 import '../domain/mascot_species.dart';
@@ -224,7 +225,7 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
     state = AsyncData(next);
   }
 
-  /// 개발자 치트: 부화 일자 +1일 진행 (Day 7 도달 시 즉시 부화 트리거)
+  /// 개발자 치트: 부화 일자 +1일 진행 (Day 7 도달 시 즉시 부화 트리거 및 문답 상태 초기화)
   Future<void> developerAdvanceEggDay({int fallbackSpeciesId = 1}) async {
     final current = state.valueOrNull ?? await _dao.getProfile();
     final nextCrackDay = (current.eggCrackDay + 1).clamp(0, 7);
@@ -238,6 +239,8 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
     );
 
     await _dao.saveProfile(next);
+    // 해당 일차의 문답 완료 플래그 및 기록을 초기화하여 다음 날의 새로운 질문 즉시 오픈
+    await ref.read(dailyRecordControllerProvider).clearAllRecords();
     state = AsyncData(next);
   }
 
