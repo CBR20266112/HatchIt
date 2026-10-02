@@ -747,6 +747,7 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
   Widget build(BuildContext context) {
     ref.listen(mascotProfileProvider, (previous, next) {
       if (previous?.valueOrNull?.eggCrackDay != next.valueOrNull?.eggCrackDay) {
+        // 날짜/알 단계 변경 감지 시 순수 화면 문답 상태 갱신만 수행
         _syncTodayQuestionStatus();
       }
     });

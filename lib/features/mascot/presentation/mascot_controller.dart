@@ -226,12 +226,12 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
     state = AsyncData(next);
   }
 
-  bool _isAdvancingEggDay = false;
+  bool _isProcessing = false;
 
   /// 개발자 치트: 부화 일자 +1일 진행 (Day 7 도달 시 즉시 부화 트리거 및 문답 상태 초기화)
   Future<void> developerAdvanceEggDay({int fallbackSpeciesId = 1}) async {
-    if (_isAdvancingEggDay) return;
-    _isAdvancingEggDay = true;
+    if (_isProcessing) return;
+    _isProcessing = true;
     try {
       final current = state.valueOrNull ?? await _dao.getProfile();
       final nextCrackDay = (current.eggCrackDay + 1).clamp(0, 7);
@@ -244,7 +244,7 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
             : current.speciesId,
       );
 
-      // 컨트롤러 내에서 1회만 정확히 +1 증가하도록 상태 갱신
+      // 컨트롤러 내에서 정확히 1회만 +1 가산하여 DB 저장 및 상태 갱신
       await _dao.saveProfile(next);
       state = AsyncData(next);
 
@@ -252,10 +252,10 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
       try {
         await ref.read(dailyRecordControllerProvider).clearAllRecords();
       } catch (e) {
-        debugPrint('[developerAdvanceEggDay] clearAllRecords error: $e');
+        debugPrint('[developerAdvanceEggDay] clearAllRecords warning: $e');
       }
     } finally {
-      _isAdvancingEggDay = false;
+      _isProcessing = false;
     }
   }
 

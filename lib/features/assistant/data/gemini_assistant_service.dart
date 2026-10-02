@@ -215,12 +215,20 @@ class GeminiAssistantService {
       },
     };
 
+    final cleanKey = apiKey.trim();
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+    };
+
+    if (cleanKey.startsWith('AQ.') || cleanKey.startsWith('ya29.')) {
+      headers['Authorization'] = 'Bearer $cleanKey';
+    } else {
+      headers['x-goog-api-key'] = cleanKey;
+    }
+
     final response = await http.post(
       uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': cleanApiKey,
-      },
+      headers: headers,
       body: jsonEncode(payload),
     );
 
