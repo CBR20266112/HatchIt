@@ -81,6 +81,25 @@ class MascotProfileDao {
     }
   }
 
+  Future<void> updateEggCrackDay(int eggCrackDay) async {
+    _memoryProfile = _memoryProfile.copyWith(eggCrackDay: eggCrackDay);
+    if (kIsWeb) {
+      return;
+    }
+
+    try {
+      final db = await _appDatabase.database;
+      await db.update(
+        _table,
+        {'egg_crack_day': eggCrackDay},
+        where: 'id = ?',
+        whereArgs: [1],
+      );
+    } catch (_) {
+      return;
+    }
+  }
+
   Future<void> resetProfile() async {
     _memoryProfile = MascotProfile.defaults.copyWith(speciesId: null);
     if (kIsWeb) {

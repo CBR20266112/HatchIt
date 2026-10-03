@@ -789,6 +789,16 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                             label: const Text('데이터 초기화'),
                           ),
                         ),
+                        const SizedBox(height: 20),
+                        Center(
+                          child: Text(
+                            'v1.0.2 (Build 12) · HatchIt Release',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                       ],
                     ),
                   ),

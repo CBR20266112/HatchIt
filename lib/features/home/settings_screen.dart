@@ -386,6 +386,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               label: const Text('앱 데이터 전체 초기화'),
             ),
           ),
+          const SizedBox(height: 24),
+          Center(
+            child: Text(
+              'v1.0.2 (Build 12) · HatchIt Release',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );

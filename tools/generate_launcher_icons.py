@@ -1,6 +1,9 @@
 """
 generate_launcher_icons.py
-egg_day1.png (또는 egg_1.png)를 기반으로 안드로이드 mipmap 런처 아이콘 5종을 생성합니다.
+egg_day1.png (또는 egg_1.png)를 기반으로:
+1. 레거시 런처 아이콘 5종 (다크 테마 배경 #1A1B22 적용)
+2. 적응형 아이콘 foreground 5종 (투명 캔버스 중앙 배치)
+을 생성합니다.
 """
 
 import sys
@@ -24,6 +27,7 @@ SOURCE_IMAGE = PROJECT_ROOT / "assets" / "images" / "eggs" / "egg_day1.png"
 if not SOURCE_IMAGE.exists():
     SOURCE_IMAGE = PROJECT_ROOT / "assets" / "images" / "eggs" / "egg_1.png"
 
+# 레거시 런처 아이콘 (48dp 기준)
 MIPMAP_SIZES = {
     "mipmap-mdpi": 48,
     "mipmap-hdpi": 72,
@@ -32,17 +36,43 @@ MIPMAP_SIZES = {
     "mipmap-xxxhdpi": 192,
 }
 
+# 적응형 아이콘 foreground 규격 (108dp 기준)
+FOREGROUND_SIZES = {
+    "mipmap-mdpi": 108,
+    "mipmap-hdpi": 162,
+    "mipmap-xhdpi": 216,
+    "mipmap-xxhdpi": 324,
+    "mipmap-xxxhdpi": 432,
+}
+
 RES_BASE = PROJECT_ROOT / "android" / "app" / "src" / "main" / "res"
+DARK_BG_COLOR = (0x1A, 0x1B, 0x22, 0xFF)  # #1A1B22
 
 
 def make_launcher_icon(source_path: Path, size: int) -> Image.Image:
-    """투명 배경 위에 알 이미지를 중앙에 배치하여 지정된 크기로 리사이즈합니다."""
+    """다크 배경(#1A1B22) 위에 알 이미지를 중앙에 배치하여 지정된 크기로 생성합니다."""
     src = Image.open(source_path).convert("RGBA")
 
-    # 가로/세로 비율 유지하면서 꽉 차게 (안드로이드 런처 아이콘 여백 고려 약간의 패딩)
-    padding_ratio = 0.05
+    # 가로/세로 비율 유지 (약간의 패딩)
+    padding_ratio = 0.08
     inner_size = int(size * (1 - padding_ratio * 2))
 
+    src.thumbnail((inner_size, inner_size), Image.Resampling.LANCZOS)
+
+    canvas = Image.new("RGBA", (size, size), DARK_BG_COLOR)
+    offset_x = (size - src.width) // 2
+    offset_y = (size - src.height) // 2
+    canvas.paste(src, (offset_x, offset_y), src)
+
+    return canvas
+
+
+def make_foreground_icon(source_path: Path, size: int) -> Image.Image:
+    """적응형 아이콘 규격(108dp): 투명 캔버스 중앙 safe zone(약 65%)에 알 배치"""
+    src = Image.open(source_path).convert("RGBA")
+
+    # safe zone (65%) 안에 맞추기
+    inner_size = int(size * 0.65)
     src.thumbnail((inner_size, inner_size), Image.Resampling.LANCZOS)
 
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
@@ -62,20 +92,25 @@ def main():
 
     for mipmap_dir, size in MIPMAP_SIZES.items():
         target_dir = RES_BASE / mipmap_dir
-        target_file = target_dir / "ic_launcher.png"
-
         if not target_dir.exists():
-            print(f"[WARN] 디렉토리가 없어 건너뜁니다: {target_dir}")
             continue
 
+        # 1. ic_launcher.png (다크 배경)
+        target_file = target_dir / "ic_launcher.png"
         icon = make_launcher_icon(SOURCE_IMAGE, size)
         icon.save(str(target_file), "PNG", optimize=True)
 
-        file_size = target_file.stat().st_size
-        print(f"  [OK] {mipmap_dir}/ic_launcher.png {size}x{size}px ({file_size // 1024} KB) -> {target_file}")
+        # 2. ic_launcher_foreground.png (적응형 포그라운드)
+        fg_size = FOREGROUND_SIZES[mipmap_dir]
+        fg_file = target_dir / "ic_launcher_foreground.png"
+        fg_icon = make_foreground_icon(SOURCE_IMAGE, fg_size)
+        fg_icon.save(str(fg_file), "PNG", optimize=True)
 
-    print("\n[DONE] 안드로이드 런처 아이콘 5종 생성 완료!")
+        print(f"  [OK] {mipmap_dir}: ic_launcher.png({size}px) + ic_launcher_foreground.png({fg_size}px)")
+
+    print("\n[DONE] 안드로이드 다크 테마 런처 & 적응형 아이콘 리소스 생성 완료!")
 
 
 if __name__ == "__main__":
     main()
+

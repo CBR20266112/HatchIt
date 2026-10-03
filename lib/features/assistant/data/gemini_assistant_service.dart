@@ -234,7 +234,12 @@ class GeminiAssistantService {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       debugPrint('[Gemini API Error] HTTP ${response.statusCode}: ${response.body}');
-      throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      if (response.body.contains('API_KEY_SERVICE_BLOCKED') ||
+          response.statusCode == 401 ||
+          response.statusCode == 403) {
+        throw Exception('API_KEY_SERVICE_BLOCKED');
+      }
+      throw Exception('HTTP ${response.statusCode}');
     }
 
     final root = jsonDecode(response.body) as Map<String, dynamic>;

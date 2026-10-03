@@ -228,32 +228,35 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
 
   bool _isProcessing = false;
 
-  /// 개발자 치트: 부화 일자 +1일 진행 (Day 7 도달 시 즉시 부화 트리거 및 문답 상태 초기화)
+  /// 개발자 치트: 부화 일자 +1일 진행 (클릭당 정확히 +1일 단일 갱신 및 연쇄 중복 가산 방지)
   Future<void> developerAdvanceEggDay({int fallbackSpeciesId = 1}) async {
     if (_isProcessing) return;
     _isProcessing = true;
     try {
       final current = state.valueOrNull ?? await _dao.getProfile();
-      final nextCrackDay = (current.eggCrackDay + 1).clamp(0, 7);
-      final shouldHatch = nextCrackDay >= 7;
+      final currentDay = current.eggCrackDay;
+      final nextDay = (currentDay + 1).clamp(0, 7);
+      final shouldHatch = nextDay >= 7;
+
       final next = current.copyWith(
-        eggCrackDay: nextCrackDay,
+        eggCrackDay: nextDay,
         currentStage: shouldHatch ? MascotStage.hatched : current.currentStage,
         speciesId: shouldHatch
             ? (current.speciesId ?? fallbackSpeciesId)
             : current.speciesId,
       );
 
-      // 컨트롤러 내에서 정확히 1회만 +1 가산하여 DB 저장 및 상태 갱신
-      await _dao.saveProfile(next);
+      // DB와 State를 일괄 업데이트 (중복 가산 방지)
+      if (shouldHatch) {
+        await _dao.saveProfile(next);
+      } else {
+        await _dao.updateEggCrackDay(nextDay);
+      }
       state = AsyncData(next);
 
-      // ref.listen이나 clearAllRecords로 인해 날짜 증가 로직이 연쇄 실행되지 않도록 분리 실행
-      try {
-        await ref.read(dailyRecordControllerProvider).clearAllRecords();
-      } catch (e) {
-        debugPrint('[developerAdvanceEggDay] clearAllRecords warning: $e');
-      }
+      await ref.read(dailyRecordControllerProvider).clearAllRecords();
+    } catch (e) {
+      debugPrint('[developerAdvanceEggDay] error: $e');
     } finally {
       _isProcessing = false;
     }

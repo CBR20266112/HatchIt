@@ -1423,8 +1423,17 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
           speciesId: profile?.speciesId,
         );
       } catch (error) {
-        geminiErrorMessage = error.toString().replaceFirst('Exception: ', '');
+        final errText = error.toString();
         debugPrint('[Assistant] Gemini API failed: $error');
+        if (errText.contains('API_KEY_SERVICE_BLOCKED') ||
+            errText.contains('401') ||
+            errText.contains('403')) {
+          geminiErrorMessage =
+              '⚠️ Gemini API 서비스 차단됨: Google AI Studio에서 새 키를 생성해 입력해주세요.';
+        } else {
+          geminiErrorMessage =
+              '⚠️ Gemini 연결 실패: 네트워크 상태 또는 API 키를 확인해주세요.';
+        }
         // 조용히 삼키지 않고, 일정 유실 방지를 위해 로컬 파서로 등록을 지원하되 에러는 명확히 안내
         response = LocalScheduleParser.parse(
           userPrompt,
@@ -1446,7 +1455,7 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
     if (geminiErrorMessage != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('⚠️ Gemini 호출 실패: $geminiErrorMessage\n(로컬 기본 파서로 등록되었습니다)'),
+          content: Text('$geminiErrorMessage\n(로컬 기본 파서로 등록되었습니다)'),
           backgroundColor: Theme.of(context).colorScheme.error,
           duration: const Duration(seconds: 5),
         ),
