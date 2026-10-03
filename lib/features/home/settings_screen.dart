@@ -389,7 +389,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
           Center(
             child: Text(
-              'v1.0.2 (Build 12) · HatchIt Release',
+              'v1.0.2 (Build 13) · HatchIt Release',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.outline,
                   ),
