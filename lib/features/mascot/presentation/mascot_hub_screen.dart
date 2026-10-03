@@ -746,9 +746,17 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen(mascotProfileProvider, (previous, next) {
-      if (previous?.valueOrNull?.eggCrackDay != next.valueOrNull?.eggCrackDay) {
-        // 날짜/알 단계 변경 감지 시 순수 화면 문답 상태 갱신만 수행
-        _syncTodayQuestionStatus();
+      final prevDay = previous?.valueOrNull?.eggCrackDay;
+      final nextDay = next.valueOrNull?.eggCrackDay;
+      if (prevDay != nextDay) {
+        // eggCrackDay 변경 시 캐시를 무효화하고 질문 잠금을 즉시 해제
+        // (개발자 +1일 점프 포함) → DB 재조회 없이 선택지 즉시 활성화
+        if (mounted) {
+          setState(() {
+            _todayQuestionCheckedDate = null;
+            _isTodayQuestionAnswered = false;
+          });
+        }
       }
     });
 

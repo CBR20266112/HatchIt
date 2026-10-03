@@ -46,11 +46,10 @@ FOREGROUND_SIZES = {
 }
 
 RES_BASE = PROJECT_ROOT / "android" / "app" / "src" / "main" / "res"
-DARK_BG_COLOR = (0x1A, 0x1B, 0x22, 0xFF)  # #1A1B22
 
 
 def make_launcher_icon(source_path: Path, size: int) -> Image.Image:
-    """다크 배경(#1A1B22) 위에 알 이미지를 중앙에 배치하여 지정된 크기로 생성합니다."""
+    """투명 배경 위에 알 이미지를 중앙에 배치하여 지정된 크기로 생성합니다 (알파 채널 유지)."""
     src = Image.open(source_path).convert("RGBA")
 
     # 가로/세로 비율 유지 (약간의 패딩)
@@ -59,7 +58,7 @@ def make_launcher_icon(source_path: Path, size: int) -> Image.Image:
 
     src.thumbnail((inner_size, inner_size), Image.Resampling.LANCZOS)
 
-    canvas = Image.new("RGBA", (size, size), DARK_BG_COLOR)
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))  # 완전 투명 배경
     offset_x = (size - src.width) // 2
     offset_y = (size - src.height) // 2
     canvas.paste(src, (offset_x, offset_y), src)
@@ -108,7 +107,7 @@ def main():
 
         print(f"  [OK] {mipmap_dir}: ic_launcher.png({size}px) + ic_launcher_foreground.png({fg_size}px)")
 
-    print("\n[DONE] 안드로이드 다크 테마 런처 & 적응형 아이콘 리소스 생성 완료!")
+    print("\n[DONE] 안드로이드 투명 배경 런처 & 적응형 아이콘 리소스 생성 완료!")
 
 
 if __name__ == "__main__":
