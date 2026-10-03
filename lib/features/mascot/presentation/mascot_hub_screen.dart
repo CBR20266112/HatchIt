@@ -1461,11 +1461,11 @@ class MascotHubScreenState extends ConsumerState<MascotHubScreen> {
     }
 
     if (geminiErrorMessage != null && mounted) {
+      // API 차단/키 오류: 붉은 대형 에러바 대신 2초 간결 힌트로만 안내
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$geminiErrorMessage\n(로컬 기본 파서로 등록되었습니다)'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          duration: const Duration(seconds: 5),
+        const SnackBar(
+          content: Text('💡 Google AI Studio에서 새 API 키를 발급받으면 AI 대화가 활성화됩니다.'),
+          duration: Duration(seconds: 2),
         ),
       );
     } else if (usedOfflineFallback && mounted) {

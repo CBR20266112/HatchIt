@@ -363,6 +363,12 @@ class LocalScheduleParser {
       '',
     ).trim();
 
+    // 문장 앞머리 감탄사/추임새 제거 ("야", "어이", "저기", "있잖아", "음", "아" 등)
+    title = title.replaceFirst(
+      RegExp(r'^(야|어이|저기|있잖아|음|아|어|이봐|잠깐|\s)+'),
+      '',
+    ).trim();
+
     if (title.isEmpty) {
       title = '새 일정';
     }

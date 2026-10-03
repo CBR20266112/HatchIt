@@ -246,6 +246,12 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
             : current.speciesId,
       );
 
+      // DB 기록을 먼저 삭제한 후 State 갱신
+      // (순서가 반대이면 ref.listen이 state 변경을 감지해 _syncTodayQuestionStatus를
+      //  호출할 때 아직 DB에 오늘 기록이 남아있어 _isTodayQuestionAnswered=true로
+      //  되돌아가는 race condition 발생)
+      await ref.read(dailyRecordControllerProvider).clearAllRecords();
+
       // DB와 State를 일괄 업데이트 (중복 가산 방지)
       if (shouldHatch) {
         await _dao.saveProfile(next);
@@ -253,8 +259,6 @@ class MascotProfileNotifier extends AsyncNotifier<MascotProfile> {
         await _dao.updateEggCrackDay(nextDay);
       }
       state = AsyncData(next);
-
-      await ref.read(dailyRecordControllerProvider).clearAllRecords();
     } catch (e) {
       debugPrint('[developerAdvanceEggDay] error: $e');
     } finally {
